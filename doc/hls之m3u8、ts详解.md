@@ -204,6 +204,10 @@ PID是TS流中唯一识别标志，Packet Data是什么内容就是由PID决定�
 
 ​        在上一节中，我们可以看到**PID**这个被标红的字段频繁地出现。PID是当前TS流的Packet区别于其他Packet类型的唯一识别符，通过读取每个包的Packet Header，我们可以知道这个Packet的数据属于何种类型。上一节列出了几项固定的PID值，它们用于识别存储了特殊信息的Packet。下面要谈的PAT表的PID值就是固定的0x0000。 
 
+**PAT表（Program Association Table，节目关联表）**
+
+
+
 
 
 ### 来源
