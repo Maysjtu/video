@@ -110,29 +110,25 @@ For example: #EXT-X-PROGRAM-DATE-TIME:2010-02-19T14:54:23.031+08:00
 
 表示PlayList的末尾了，它可以在PlayList中任意位置出现，但是只能出现一个，格式如下：
 
-         ```             
+```
 #EXT-X-ENDLIST
-         ```
+```
+
 
 
 
 ### 3. TS文件
 
- 	TS：全称为MPEG2-TS。TS即"Transport Stream"的缩写。它是分包发送的，每一个包长为188字节（还有192和204个字节的包）。包的结构为，包头为4个字节（第一个字节为0x47），负载为184个字节。在TS流里可以填入很多类型的数据，如视频、音频、自定义信息等。
-
-​	MPEG2-TS主要应用于实时传送的节目，比如实时广播的电视节目。MPEG2-TS格式的特点就是要求从视频流的任一片段开始都是可以独立解码的。简单地说，将DVD上的VOB文件的前面一截cut掉（或者是数据损坏数据）就会导致整个文件无法解码，而电视节目是任何时候打开电视机都能解码（收看）的。
+ 	TS即"Transport Stream"的缩写。它是分包发送的，每一个包长为188字节（还有192和204个字节的包）。包的结构为，包头为4个字节（第一个字节为0x47），负载为184个字节。在TS流里可以填入很多类型的数据，如视频、音频、自定义信息等。
 
 ts文件为传输流文件，视频编码主要格式H.264/MPEG-4，音频为AAC/MP3。
 
 ts文件分为三层：ts层Transport Stream、pes层Packet Elemental Stream、es层 Elementary Stream。
 
-> ES流（Elementary Stream）：基本码流，不分段的音频、视频或其他信息的连续码流。
->
-> PES流：把基本流ES分割成段，并加上相应头文件打包成形的打包基本码流。
->
-> PS流（Program Stream）：节目流，将具有共同时间基准的一个或多个PES组合（复合）而成的单一数据流（用于播放或编辑系统，如m2p）。
->
-> TS流（Transport Stream）：传输流，将具有共同时间基准或独立时间基准的一个或多个PES组合（复合）而成的单一数据流（用于数据传输）。
+- ES流（Elementary Stream）：基本码流，不分段的音频、视频或其他信息的连续码流。
+- PES流：把基本流ES分割成段，并加上相应头文件打包成形的打包基本码流。
+- PS流（Program Stream）：节目流，将具有共同时间基准的一个或多个PES组合（复合）而成的单一数据流（用于播放或编辑系统，如m2p）。
+- TS流（Transport Stream）：传输流，将具有共同时间基准或独立时间基准的一个或多个PES组合（复合）而成的单一数据流（用于数据传输）。
 
 **TS流是如何产生的**
 
@@ -148,11 +144,11 @@ ts文件分为三层：ts层Transport Stream、pes层Packet Elemental Stream、e
 
 ![](http://p1yseh5av.bkt.clouddn.com/18-1-3/40598805.jpg)
 
-​		Packet Header（包头）信息说明
+Packet Header（包头）信息说明
 
-| 序号   | 含义                           |            |                             |
+| 序号   | 含义                           | 大小         | 描述                          |
 | ---- | ---------------------------- | ---------- | --------------------------- |
-| 1    | sync_byte                    | 8bits      | 同步字节                        |
+| 1    | sync_byte                    | 8bits      | 同步字节，固定为0x47，表示后面是一个TS分组    |
 | 2    | transport_error_indicator    | 1bit       | 错误指示信息（1：该包至少有1bits传输错误）    |
 | 3    | payload_unit_start_indicator | 1bit       | 负载单元开始标志（packet不满188字节时需填充） |
 | 4    | transport_priority           | 1bit       | 传输优先级标志（1：优先级高）             |
@@ -200,19 +196,62 @@ PID是TS流中唯一识别标志，Packet Data是什么内容就是由PID决定�
 
 ### 4. 从TS流到PAT、PMT
 
-  说完了TS流的基本概念，就该开始对TS流进行更深入的研究了。首先需要想一想：TS流的本质是什么？它的确是一段码流，并且是一段由数据包（Packet）组成的码流。那么这些数据包究竟是怎样的呢？它和我们收看的电视节目之间又有什么区别？这些都是这部分需要了解的内容。
+​	简单的来说，ts文件中的信息其实就是通过负载类型字段来找，找到后把数据从负载中提取出来，ts中可以有很多媒体类型数据，比如说可以同时又音频和视频数据，
+可是要如何区分ts文件中的数据是音频还是视频呢？这就需要动用ts文件中的PSI描述说明了。
 
-​        在上一节中，我们可以看到**PID**这个被标红的字段频繁地出现。PID是当前TS流的Packet区别于其他Packet类型的唯一识别符，通过读取每个包的Packet Header，我们可以知道这个Packet的数据属于何种类型。上一节列出了几项固定的PID值，它们用于识别存储了特殊信息的Packet。下面要谈的PAT表的PID值就是固定的0x0000。 
+**PSI**
 
-**PAT表（Program Association Table，节目关联表）**
+在MPEG-II中定义了节目特定信息（PSI），PSI用来描述传送流的组成结构，在MPEG-II系统中担任及其重要的角色，在多路复用中尤为重要的是PAT表和PMT表。PAT表给出了一路MPEG-II码流中有多少套节目，以及它与PMT表PID之间的对应关系；PMT表给出了一套节目的具体组成情况与其视频、音频等PID对应关系。
+
+>多路复用通常表示在一个信道上传输多路信号或数据流的过程和技术。因为多路复用能够将多个低速信道整合到一个高速信道进行传输，从而有效地利用了高速信道。通过使用多路复用，[通信运营商](https://zh.wikipedia.org/w/index.php?title=%E9%80%9A%E4%BF%A1%E8%BF%90%E8%90%A5%E5%95%86&action=edit&redlink=1)可以避免维护多条线路，从而有效地节约运营成本。
+>
+>首先，各个低速信道的信号通过[多路复用器](https://zh.wikipedia.org/wiki/%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8%E5%99%A8)（MUX，多工器）组合成一路可以在高速信道传输的信号。在这个信号通过高速信道到达接收端之后，再由[分路器](https://zh.wikipedia.org/w/index.php?title=%E5%88%86%E8%B7%AF%E5%99%A8&action=edit&redlink=1)（DEMUX，解多工器）将高速信道传输的信号转换成多个低速信道的信号，并且转发给对应的低速信道。
+>
+>​			多路复用抽象模型
+>
+>![](http://p1yseh5av.bkt.clouddn.com/18-1-4/48821931.jpg)
 
 
 
+PSI提供了使接收机能够自动配置的信息，用于对复用流中的不同节目流进行解复用和解码。PSI信息由以下几种类型表组成：
 
+- 节目关联表（PAT Program Association Table）
+
+  ​    　PAT表用MPEG指定的PID（00）标明，通常用PID=0表示。它的主要作用是针对复用的每一路传输流，提供传输流中包含哪些节目、节目的编号以及对应节目的节目映射表（PMT）的位置，即PMT的TS包的包标识符（PID）的值，同时还提供网络信息表（NIT）的位置，即NIT的TS包的包标识符（PID）的值。
+
+- 条件接收表（CAT Conditional Access Table）
+
+  ​    　CAT表用MPEG指定的PID（01）标明，通常用PID=1表示。它提供了在复用流中条件接收系统的有关信息，指定CA系统与它们相应的授权管理信息（EMM））之间的联系，指定EMM的PID，以及相关的参数。
+
+- 节目映射表（PMT Program Map Table）
+
+  ​    　节目映射表指明该节目包含的内容，即该节目由哪些流组成，这些流的类型（音频、视频、数据），以及组成该节目的流的位置，即对应的TS包的PID值，每路节目的节目时钟参考（PCR）字段的位置。
+
+- 网络信息表（NIT Nerwork Information Table）
+
+  ​    　网络信息表提供关于多组传输流和传输网络相关的信息，其中包含传输流描述符、通道频率、卫星发射器号码、调制特性等信息。
+
+- 传输流描述表（TSDT Transport Stream Description Table）
+
+  ​    传输流描述表由PID为2的TS包传送，提供传输流的一些主要参数。
+
+- 专用段（private_section）
+
+  ​    　MPEG-2还定义了一种专用段用于传送用户自己定义的专用数据。
+
+- 描述符（Descripter）
+
+  ​    　除了上述的表述之外，MPEG-2还定义了许多描述符，这些描述符提供关于视频流、音频流、语言、层次、系统时钟、码率等多方面的信息，在PSI的表中可以灵活的采用这些描述符进一步为接收机提供更多的信息。
+
+​       在解码时，接收机首先根据PID值找到PAT表，找出相应节目的PMT表的PID，再由该PID找到该PMT表，再在PMT表中找到相应的码流，然后开始解码。
+
+​	简单的说就是，解析ts的过程就是通过找到PAT表，从PAT表中找出对应存在的节目的id，按照这些id找到这些节目的PMT表，从中获到这些节目总的相对的媒体数据id，然后通过这些id，再从ts文件中找到这些文件的es数据，来完成解码或者别的什么操作。
 
 ### 来源
 
 1. [TS流PAT/PMT详解](http://www.cnblogs.com/shakin/p/3714848.html)
 2. [HLS M3U8详解](http://blog.csdn.net/matrix_laboratory/article/details/18597617)
 3. [hls之m3u8、ts、h264、AAC流格式详解](http://ju.outofmemory.cn/entry/276905)
+4. [多路复用](https://zh.wikipedia.org/wiki/%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8)
+5. [TS文件格式详解](http://blog.chinaunix.net/uid-24922718-id-3686257.html)
 
