@@ -1,0 +1,86 @@
+## 音视频同步与帧率控制
+
+### 1. 音视频同步
+
+音视频同步是一个播放器要处理的基本问题，音视频同步的好坏直接影响到播放效果。
+
+解码后的音频片段和视频片段，都分别带有 pts 时间戳信息。回放时需要做的就是尽量保证apts（音频时间戳）和 vpts（视频时间戳），之间的差值是最小的。为了达到这个目的，就需要在 adev 和 vdev 进行渲染的时候进行控制。控制的方法就是 **delay**。
+
+由于音频在回放时，我们必须保证连续性，就是说两个**时间上连续的音频片段**是不允许有 delay 的。如果有了 delay 人的耳朵可以很明显的分辨出来，给人的主观感受就是声音卡顿。所以通常情况下，声音都是连续播放，然后**在视频渲染的时候做 delay**，**将视频同步到音频**。
+
+```C
+int64_t   apts;
+int64_t   vpts;
+```
+
+这两个变量，用于记录当前的 apts 和 vpts。apts 是在 adev 中，由 waveout 的 callback 函数进行更新的，代表着当前音频 pts 时间。vpts 是在 vdev 的视频渲染线程中更新的，代表着当前视频 pts 时间。
+
+在视频渲染线程中，有一段控制算法：
+
+```c
+//++ frame rate & av sync control ++//
+DWORD   tickcur  = GetTickCount();
+int     tickdiff = tickcur - c->ticklast;
+int64_t avdiff   = apts - vpts - c->tickavdiff;
+c->ticklast = tickcur;
+if (tickdiff - c->tickframe >  2) c->ticksleep--;
+if (tickdiff - c->tickframe < -2) c->ticksleep++;
+if (apts != -1 && vpts != -1) {
+    if (avdiff > 5) c->ticksleep-=2;
+    if (avdiff <-5) c->ticksleep+=2;
+}
+if (c->ticksleep < 0) c->ticksleep = 0;
+if (c->ticksleep > 0) Sleep(c->ticksleep);
+av_log(NULL, AV_LOG_INFO, "d3d d: %3lld, s: %d\n", avdiff, c->ticksleep);
+//-- frame rate & av sync control --//
+```
+
+这一段代码，就实现了音视频同步和帧率控制。
+
+```c
+int64_t avdiff   = apts - vpts - c->tickavdiff;
+计算出了当前 apts 和 vpts 之间的差值 avdiff。如果 avdiff 为负数，说明 video 的渲染比 audio 快了，所以视频渲染线程的延时需要增加；如果 avdiff 为正数，说明 audio 跑得比 video 快了，所以要减少延时：
+if (apts != -1 && vpts != -1) {
+    if (avdiff > 5) c->ticksleep-=2;
+    if (avdiff <-5) c->ticksleep+=2;
+}
+```
+
+这段代码在动态运行时，实时计算当前 avdiff 值，并且实时调整 c->ticksleep，使得 avdiff 值趋向于收敛，正常情况下 avdiff 的绝对值可达到 <30ms，也就是说渲染时音视频之间的时间差在 60ms 以内，这样的同步效果已经非常理想，靠人眼和耳朵的主观判断，已经无法分辨。
+
+### 2. 帧率控制
+
+同时，这段代码还实现了帧率控制。通常的帧率控制，基本上也就是通过 sleep 延时来实现。
+
+比如说 30fps 的视频，每帧之间的间隔是 33.3ms，但是我们是否就是每次都延时 33.3ms 呢？肯定不是，因为几乎所有 os 上 sleep 的精度都是不可靠的。所以我们利用了 GetTickCount() 这个函数来获取当前的 tick 时间，是一个 ms 为单位的时间。通过这个 tick 就可以计算每次渲染线程实际的延时时间。
+
+```c
+DWORD   tickcur  = GetTickCount(); // 取得当前的 tick
+int     tickdiff = tickcur - c->ticklast; // c->ticklast 是上一次的 tick
+c->ticklast = tickcur;
+```
+
+在线程的 while 循环中，每次执行到 int tickdiff = tickcur - c->ticklast; 这一行代码时，我们就计算出了上一次执行到这行代码和这次执行到这行代码时，极为精确的时间差值，精确到 1ms。
+
+理论上这个 tickdiff 值，就应当等于 1000ms / 帧率，所以我们有了这样的动态控制算法：
+
+```c
+if (tickdiff - c->tickframe >  2) c->ticksleep--;
+if (tickdiff - c->tickframe < -2) c->ticksleep++;
+// tickdiff 为实际的实时的当前的视频渲染前后帧的时间差值
+// c->tickframe 为 1000ms / 帧率
+// c->ticksleep 为渲染线程的 sleep 延时时间
+```
+
+原理就是当 tickdiff 过大，就减少延时时间，当 tickdiff 过小就增加延时时间。这也是一个实时的动态的控制过程，在运行过程中会自动实时调整 ticksleep 值，使得 tickdiff 收敛于 tickframe，即保证视频渲染的帧率恒定。
+
+帧率控制的动态算法和音视频同步的动态算法，最终的计算结果，其实就是 c->ticksleep 这样一个延时时间。说白了，音视频同步和帧率控制，就是在视频渲染线程中通过做延时来实现的，而控制的关键变量，就是 ticksleep 这个延时时间。整个算法的最终目的，就是动态计算和调整 ticksleep，来保证 tickdiff 和 avdiff 两个指标趋于收敛。这段代码原理就是如此（算是比较简单），十几行代码就轻松解决了音视频同步和帧率控制两个关键问题。
+
+当然目前的实现，只是考虑了将视频同步到音频，这样足以应付绝大多数多媒体文件。对于部分视频文件，其音频和视频的 pts 可能是不连续的，怎么办？这就需要将音视频的 pts 同步到系统的 clock 上。什么是系统的 clock，其实就是 GetTickCount 出来的系统 tick 值。在音视频渲染的开始，记录下当时的 tick 值，之后每次渲染音视频的时候，都重新获取当前的 tick 值，就能计算出系统的 clock 过去了多少 ms。然后比较系统 clock 和 apts/vpts 时间的差值，来决定延时时间。这就是所谓的同步音视频到系统 clock 的原理。
+
+
+
+### 来源
+
+[音视频同步与帧率控制](https://github.com/rockcarry/ffplayer/wiki/%E9%9F%B3%E8%A7%86%E9%A2%91%E5%90%8C%E6%AD%A5%E4%B8%8E%E5%B8%A7%E7%8E%87%E6%8E%A7%E5%88%B6)
+
