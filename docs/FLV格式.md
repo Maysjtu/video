@@ -99,7 +99,7 @@ PS：从上表可以发现，FLV封装格式并不支持48KHz的采样率。
   | 4    | On2 VP6                    |
   | 5    | On2 VP6 with alpha channel |
   | 6    | Screen video version 2     |
-  | 7    | AVC                        |
+  | 7    | AVC     => H.264/AVC       |
 
 - Script Tag Data（控制帧）
 
