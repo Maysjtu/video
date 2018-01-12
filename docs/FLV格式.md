@@ -4,6 +4,16 @@
 
 FLV（Flash Video）是Adobe公司设计开发的一种流行的流媒体格式，由于其视频文件体积轻巧、封装简单等特点，使其很适合在互联网上进行应用。此外，FLV可以使用Flash Player进行播放，而Flash Player插件已经安装在全世界绝大部分浏览器上，这使得通过网页播放FLV视频十分容易。目前主流的视频网站如优酷网，土豆网，乐视网等网站无一例外地使用了FLV格式。FLV封装格式的文件后缀通常为“.flv”。
 
+>  **1.        FLV文件对齐方式**
+>
+> FLV文件以大端对齐方式存放多字节整型。
+>
+> 如存放数字无符号16位的数字300（0x012C），那么在FLV文件中存放的顺序是：|0x01|0x2C|。
+>
+> 如果是无符号32位数字300（0x0000012C），那么在FLV文件中的存放顺序是：|0x00|0x00|0x00|0x01|0x2C。
+
+
+
 总体上看，FLV包括文件头（File Header）和文件体（File Body）两部分，其中文件体由一系列的Tag组成。
 
 ![](http://static.kanhunli.cn//18-1-2/59966338.jpg)
@@ -103,7 +113,9 @@ PS：从上表可以发现，FLV封装格式并不支持48KHz的采样率。
 
 - Script Tag Data（控制帧）
 
-  该类型Tag又通常被称为Metadata Tag，会放一些关于FLV视频和音频的元数据信息如：duration、width、height等。通常该类型Tag会跟在File Header后面作为第一个Tag出现，而且只有一个。
+  该类型Tag又通常被称为Metadata Tag，会放一些关于FLV视频和音频的元数据信息如：duration、width、height等。通常该类型Tag会跟在File Header后面作为第一个Tag出现，而且**只有一个**。
+
+  AMF（Action Message Format）是Adobe设计的一种通用数据封装格式，在Adobe的很多产品中应用，简单来说，AMF将不同类型的数据用统一的格式来描述。
 
   第一个AMF包：
 
@@ -129,10 +141,53 @@ PS：从上表可以发现，FLV封装格式并不支持48KHz的采样率。
 | audiocodecid    | 音频编码方式 |
 | filesize        | 文件大小   |
 
+**视频数据**
+
+**AVCVideoPacket格式**
+
+AVCVideoPacket同样包括Packet Header和Packet Body两部分：
+
+即AVCVideoPacket Format：
+
+| AVCPacketType(8)| CompostionTime(24) | Data |
+
+AVCPacketType为包的类型：
+
+​         如果AVCPacketType=0x00，为AVCSequence Header；
+
+​         如果AVCPacketType=0x01，为AVC NALU；
+
+​         如果AVCPacketType=0x02，为AVC end ofsequence
+
+CompositionTime为相对时间戳：
+
+​         如果AVCPacketType=0x01， 为相对时间戳；
+
+​         其它，均为0；
+
+Data为负载数据：
+
+​         如果AVCPacketType=0x00，为AVCDecorderConfigurationRecord；
+
+​         如果AVCPacketType=0x01，为NALUs；
+
+​         如果AVCPacketType=0x02，为空。
+
+**AVCDecorderConfigurationRecord格式**
+
+AVCDecorderConfigurationRecord包括文件的信息。
+
+具体格式如下：
+
+| cfgVersion(8) | avcProfile(8) | profileCompatibility(8) |avcLevel(8) | reserved(6) | lengthSizeMinusOne(2) | reserved(3) | numOfSPS(5) |spsLength(16) | sps(n) | numOfPPS(8) | ppsLength(16) | pps(n) |
+
+
+
 
 
 #### 来源
 
 1. [视音频数据处理入门：FLV封装格式解析](http://blog.csdn.net/leixiaohua1020/article/details/50535082)
 2. [视音频编解码学习工程：FLV封装格式分析器](http://blog.csdn.net/leixiaohua1020/article/details/17934487)
+3. [FLV文件格式解析](http://blog.csdn.net/hellofeiya/article/details/9249709)
 

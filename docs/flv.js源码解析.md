@@ -22,6 +22,10 @@ flv.js项目的代码有一定规模，如果要研究的话，我建议从demux
 
 
 
+
+
+
+
 ### 来源
 
 [FLV.JS 代码解读--demux部分](https://zhuanlan.zhihu.com/p/24429290)
