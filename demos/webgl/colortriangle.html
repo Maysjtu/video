@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>square 2</title>
+	</head>
+	<body>
+		<canvas id="canvas" width="200" height="200"></canvas>
+		<script type="text/javascript">
+			function initShader(gl, vertexShaderSource, fragmentShaderSource) {
+				var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderSource);
+				gl.compileShader(vertexShader);
+
+				var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderSource);
+				gl.compileShader(fragmentShader);
+
+				var program = gl.createProgram();
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+				
+
+				  // Check the result of compilation
+				var compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+				  if (!compiled) {
+				    var error = gl.getShaderInfoLog(fragmentShader);
+				    console.log('Failed to compile shader: ' + error);
+				    //gl.deleteShader(vertexShader);
+				}
+				console.log(compiled);
+				
+				gl.linkProgram(program);
+				console.log(program);
+				gl.useProgram(program);
+				gl.program = program;
+			}
+			function initVertexBuffer(gl, vertices){
+				var buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+			}
+			function setAttributeFromBuffer(gl, name, size, stride, offset) {
+				var attribute = gl.getAttribLocation(gl.program, name);
+				gl.vertexAttribPointer(attribute, size, gl.FLOAT, false, stride, offset);
+				gl.enableVertexAttribArray(attribute);
+			}
+			function clear(gl, r, g, b, a) {
+				gl.clearColor(r, g, b, a);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+			}
+			function draw(gl, size) {
+				gl.drawArrays(gl.TRIANGLES, 0, size);
+			}
+			
+			var canvas = document.getElementById('canvas');
+			var gl = canvas.getContext('webgl');
+			var VSHADER_SOURCE = `
+				attribute vec4 a_Position;
+				attribute vec4 a_Color;
+				varying vec4 v_Color;
+				void main(){
+					gl_Position = a_Position;
+					gl_PointSize = 10.0;
+					v_Color = a_Color;
+				}
+			`;
+			var FSHADER_SOURCE = `
+				precision mediump float;
+				varying vec4 v_Color;
+				void main(){
+					gl_FragColor = v_Color;
+				}
+			`;
+			var verticesColors = new Float32Array([
+				0.0, 0.5, 1.0, 0.0, 0.0,
+				-0.5, -0.5,0.0, 1.0, 0.0,
+				0.5, -0.5, 0.0, 0.0, 1.0
+				]);
+
+			initShader(gl, VSHADER_SOURCE, FSHADER_SOURCE);
+			// 往顶点数据缓存冲写入数据
+			initVertexBuffer(gl, verticesColors);
+			// 使着色器代码中的a_Position变量，指向顶点数据缓冲区
+			var FSIZE = verticesColors.BYTES_PER_ELEMENT;
+			setAttributeFromBuffer(gl, 'a_Position', 2, FSIZE*5, 0);
+			setAttributeFromBuffer(gl, 'a_Color', 3, FSIZE*5, FSIZE*2);		
+			// 清除颜色缓冲区中数据
+			clear(gl, 1.0, 1.0, 1.0, 1.0);
+			// 根据着色器代码,绘制图像
+			draw(gl, 3);
+		</script>
+	</body>
+</html>

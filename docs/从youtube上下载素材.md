@@ -15,3 +15,12 @@ sudo chmod a+rx /usr/local/bin/youtube-dl
 youtube-dl https://www.youtube.com/watch?v=rJSta3pnsQk
 ```
 
+3. Error: av_interleaved_write_frame(): Invalid argument
+
+   > 添加参数 --prefer-ffmpeg
+
+   ```
+   youtube-dl http://v.youku.com/v_show/id_XMzE1NjI2MTM4OA\=\=.html\?spm\=a2h0k.8191407.0.0\&from\=s1.8-1-1.2 --prefer-ffmpeg
+   ```
+
+   ​

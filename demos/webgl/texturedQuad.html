@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>texture</title>
+		<style type="text/css">
+			body {
+				width: 100%;
+				text-align: center;
+			}
+			#canvas {
+				display: inline-block;	
+				margin: 0 auto;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" width="600" height="600"></canvas>
+		<script type="text/javascript">
+			function initShader(gl, vertexShaderSource, fragmentShaderSource) {
+				var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderSource);
+				gl.compileShader(vertexShader);
+
+				var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderSource);
+				gl.compileShader(fragmentShader);
+
+				var program = gl.createProgram();
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+				
+
+				  // Check the result of compilation
+				var compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+				  if (!compiled) {
+				    var error = gl.getShaderInfoLog(fragmentShader);
+				    console.log('Failed to compile shader: ' + error);
+				    //gl.deleteShader(vertexShader);
+				}
+				console.log(compiled);
+				
+				gl.linkProgram(program);
+				console.log(program);
+				gl.useProgram(program);
+				gl.program = program;
+			}
+			function initVertexBuffer(gl, vertices){
+				var buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+			}
+			function setAttributeFromBuffer(gl, name, size, stride, offset) {
+				var attribute = gl.getAttribLocation(gl.program, name);
+				gl.vertexAttribPointer(attribute, size, gl.FLOAT, false, stride, offset);
+				gl.enableVertexAttribArray(attribute);
+			}
+			function setUniform(gl, name, f){
+				var u_FragColor = gl.getUniformLocation(gl.program, name);
+				gl.uniform1f(u_FragColor, f);
+			}
+			function clear(gl, r, g, b, a) {
+				gl.clearColor(r, g, b, a);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+			}
+			function draw(gl, size) {
+				gl.drawArrays(gl.TRIANGLES, 0, size);
+			}
+			
+			var canvas = document.getElementById('canvas');
+			var gl = canvas.getContext('webgl');
+			var VSHADER_SOURCE = `
+				attribute vec4 a_Position;
+				attribute vec2 a_TexCoord;
+				varying vec2 v_TexCoord;
+				void main(){
+					gl_Position = a_Position;
+					v_TexCoord = a_TexCoord;
+				}
+			`;
+			var FSHADER_SOURCE = `
+				precision mediump float;
+				uniform sampler2D u_Sampler;
+				varying vec2 v_TexCoord;
+				void main(){
+					gl_FragColor = texture2D(u_Sampler, v_TexCoord);
+				}
+			`;
+			var verticesTexCoords = new Float32Array([
+			    -0.5,  0.5, 0, 2,
+			    -0.5, -0.5, 0, 0,
+			     0.5,  0.5, 2, 2,
+			     0.5, -0.5, 2, 0
+				]);
+			function initTexture(gl ,n){
+				var texture = gl.createTexture();
+				var u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler');
+				var image = new Image();
+			  	image.onload = function(){
+			    	loadTexture(gl, n, texture, u_Sampler, image);	
+			  	}
+			    image.src = './assets/sky.jpg'
+			}
+			function loadTexture(gl, n, texture, u_Sampler, image){
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,1);
+			  	//开启0号纹理单元
+			  	gl.activeTexture(gl.TEXTURE0);
+			  	//向target绑定纹理对象
+			  	gl.bindTexture(gl.TEXTURE_2D, texture);
+			  	//配置纹理参数
+			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+
+			  	//配置纹理图像
+			  	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+			  	//将0号纹理传递给着色器 
+			  	gl.uniform1i(u_Sampler, 0);
+				clear(gl, 0.0, 0.0, 0.0, 1.0);
+			  	gl.drawArrays(gl.TRIANGLE_STRIP, 0, n);
+			}
+
+			initShader(gl, VSHADER_SOURCE, FSHADER_SOURCE);
+			// 往顶点数据缓存冲写入数据
+			initVertexBuffer(gl, verticesTexCoords);
+			// 使着色器代码中的a_Position变量，指向顶点数据缓冲区
+			var FSIZE = verticesTexCoords.BYTES_PER_ELEMENT;
+			setAttributeFromBuffer(gl, 'a_Position', 2, FSIZE*4, 0);
+			setAttributeFromBuffer(gl, 'a_TexCoord', 2, FSIZE*4, FSIZE*2);
+
+
+			// 清除颜色缓冲区中数据
+			
+			initTexture(gl, 4);
+			
+		</script>
+	</body>
+</html>		
