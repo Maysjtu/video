@@ -1743,10 +1743,681 @@ var indices = new Uint8Array([       // Indices of the vertices
 
 环境反射是针对环境光而言的。在环境反射中，反射光的方向可以认为就是入射光的反方向。由于环境光照射物体的方式就是个方向均匀、强度相等的，所以反射光也是各向均匀的。
 
-​	<环境反射光颜色> = <入射光颜色>x<表面基底色>
+​		<环境反射光颜色> = <入射光颜色>x<表面基底色>
 
 这里入射光颜色实际上也就是环境光的颜色。
 
+当漫反射和环境反射同时存在时，将两者加起来，就会得到物体最终被观察到的颜色：
+
+​		<表面的反射光颜色> = <漫反射光颜色>+<环境反射光颜色>
+
+注意，两种反射光并不一定总是存在，也并不一定要完全按照上述公式来计算。渲染三维模型时，你可以修改这些公式以达到想要的效果。
+
+
+
+示例程序，在合适的位置放置一个光源，对场景进行着色。
+
+#### 平行光下的漫反射
+
+因为平行光的方向是唯一的，对于同一个平面上的所有点，入射角是相同的。
+
+​		<漫反射光颜色> = <入射光颜色>x<表面基底色>xcos∂
+
+入射光的颜色可能是白色的，比如阳光；也可能是其他颜色的，比如隧道中的橘黄色灯光。
+
+物体表面的基底色其实就是“物体本来的颜色”（物体在标准白光下的颜色）。
+
+在计算反射光颜色时，我们对RGB值的三个分量逐个相乘。
+
+···
+
+当白光垂直入射到红色物体的表面时，漫反射光的颜色就变成了红色。而如果是红光垂直入射到白色物体的表面时，漫反射光的颜色也会是红色。
+
+入射光与表面平行时，物体表面应该完全不反光，看上去是黑的。
+
+#### 根据光线和表面的方向计算入射角
+
+我们必须根据入射光的方向和物体表面的朝向（即法线方向）来计算出入射角。
+
+我们可以确定每个表面的朝向。在指定光源的时候，再确定光的方向，就可以用这两项信息来计算入射角了。
+
+可以通过计算两个矢量的点积，来计算这两个矢量的夹角余弦值cos∂。
+
+​		cos∂ = <光线方向>·<法线方向>
+
+因此 <漫反射光颜色> = <入射光颜色>x<表面基底色>x(<光线方向>·<法线方向>)
+
+⚠️：
+
+1. 光线方向矢量和表面法线矢量的长度必须为1，否则反射光的颜色就会过亮或过暗。
+
+   讲一个矢量的长度调整为1，同时保持方向不变的过程称之为归一化（normalization）。
+
+2. 这里所谓的光线方向，实际上是入射方向的反方向，即从入射点指向光源方向（因为这样，该方向与法相方向的夹角才是入射角）。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/6398677.jpg)
+
+#### 法线：表面的朝向
+
+物体表面的朝向，即垂直于表面的方向，又称法线或法向量。法向量有三个分量，向量（nx，ny，nz）表示从原点（0，0，0）指向点（nx，ny，nz）的方向。
+
+向量（1，0，0）表示x轴正方向。
+
+向量（0，0，1）表示z轴正方向。
+
+涉及到表面和法向量的问题时，必须考虑以下两点：
+
+- 一个表面具有两个法向量
+
+  每个表面都有两个面，“正面”和“背面”。两个面个字具有一个法向量。
+
+  ![](http://p1yseh5av.bkt.clouddn.com/18-1-26/70583160.jpg)
+
+在三维图形学中，表面的正面和背面取决于绘制表面时的顶点顺序。当你按照v0,v1,v2,v3的顶点顺序绘制了一个平面，那么当你从正面观察这个表面时，这4个顶点时顺时针的，而你从背面观察该表面，这4个顶点就是逆时针的。所以，该平面正面的法向量就是（0，0，-1）
+
+#### 平面的法向量唯一
+
+由于法向量表示的是方向，与位置无关，所以一个平面只有一个法向量。换句话说，平面的任意一点都具有相同的法向量。
+
+相互平行的两个平面，也具有相同的法向量。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/27591915.jpg)
+
+一旦计算好每个平面的法向量，接下来的任务就是将数据传给着色器程序。
+
+每个顶点对应三个法向量，就像之前每个顶点都对应3个颜色值一样。
+
+> 立方体比较特殊，各表面垂直相交，所以每个顶点对应3个法向量（同时在缓冲区中被拆成3个顶点）。但是一些表面光滑的物体，比如游戏中人物模型，通常其每个顶点只对应一个法向量。
+
+#### LightedCube
+
+```js
+var VSHADER_SOURCE = 
+  'attribute vec4 a_Position;\n' + 
+  'attribute vec4 a_Color;\n' + 
+  'attribute vec4 a_Normal;\n' +        // Normal
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform vec3 u_LightColor;\n' +     // Light color
+  'uniform vec3 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position ;\n' +
+  // 对法向量归一化
+  '  vec3 normal = normalize(a_Normal.xyz);\n' +
+  // 计算方向和法向量的点积
+  '  float nDotL = max(dot(u_LightDirection, normal), 0.0);\n' +
+  // 计算漫反射光的颜色
+  '  vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
+  '  v_Color = vec4(diffuse, a_Color.a);\n' +
+  '}\n';
+
+// Fragment shader program
+var FSHADER_SOURCE = 
+  '#ifdef GL_ES\n' +
+  'precision mediump float;\n' +
+  '#endif\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_FragColor = v_Color;\n' +
+  '}\n';
+···
+  // Set the clear color and enable the depth test
+  gl.clearColor(0, 0, 0, 1);
+  gl.enable(gl.DEPTH_TEST);
+
+  // Get the storage locations of uniform variables and so on
+  var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
+  var u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor');
+  var u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection');
+  if (!u_MvpMatrix || !u_LightColor || !u_LightDirection) { 
+    console.log('Failed to get the storage location');
+    return;
+  }
+
+  // Set the light color (white)
+  gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
+  // Set the light direction (in the world coordinate)
+  var lightDirection = new Vector3([0.5, 3.0, 4.0]);
+  lightDirection.normalize();     // Normalize
+  gl.uniform3fv(u_LightDirection, lightDirection.elements);
+
+···
+
+    var normals = new Float32Array([    // Normal
+    0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,  // v0-v1-v2-v3 front
+    1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,  // v0-v3-v4-v5 right
+    0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,  // v0-v5-v6-v1 up
+   -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  // v1-v6-v7-v2 left
+    0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,  // v7-v4-v3-v2 down
+    0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0   // v4-v7-v6-v5 back
+  ]);	
+
+```
+
+#### 顶点着色器
+
+float nDotL = max(dot(u_LightDirection, normal), 0.0);
+
+点积值小于0，意味着cos∂中的∂大于90度。∂是入射角，也就是入射反方向与表面法向量的夹角，∂大于90度说明光线照射在表面的背面上，则将nDotL赋值为0.0
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/75016857.jpg)
+
+实际上，物体表面的透明度确实会影响物体的外观。但这是光照的计算较为复杂，现在暂时认为物体都是不透明的，这样就计算出了漫反射光的颜色diffuse。
+
+ ```
+v_Color = vec4(diffuse, 1.0);
+ ```
+
+顶点着色器运行的结果就是计算出了v_Color变量，其值取决于顶点的颜色、法线方向、平行光的颜色和方向。
+
+v_Color变量将被传入片元着色器并赋值给gl_FragColor变量。本例中的光是平行光，所以立方体上同一个面的颜色也是一致的，没有之前出现的颜色渐变效果。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/78063325.jpg)
+
+#### 环境光下的漫反射
+
+在现实世界中，光照下物体的各表面的差异不会如此分明：那些背光的面虽然会暗一些，但绝不至于黑到看不见的程度。实际上，那些背光的面是背非直射光（即用其他物体，如墙壁的反射光等）照亮的，前面提到的环境光就起到了这部分非直射光的作用，它使场景更加逼真。因为环境光均匀地从各个角度照在物体表面，所以由环境光反射产生的颜色只取决于光的颜色和表面基底色。
+
+​		<环境反射光颜色> = <入射光颜色>x<表面基底色>
+
+得到：
+
+​		<表面的反射光颜色> = <漫反射光颜色>+<环境反射光颜色>
+
+#### LightedCube_ambient
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/49291867.jpg)
+
+```js
+var VSHADER_SOURCE =
+  'attribute vec4 a_Position;\n' +
+  'attribute vec4 a_Color;\n' +
+  'attribute vec4 a_Normal;\n' +       // Normal
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform vec3 u_DiffuseLight;\n' +   // Diffuse light color
+  'uniform vec3 u_LightDirection;\n' + // Diffuse light direction (in the world coordinate, normalized)
+  'uniform vec3 u_AmbientLight;\n' +   // Color of an ambient light
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+     // Make the length of the normal 1.0
+  '  vec3 normal = normalize(a_Normal.xyz);\n' +
+     // The dot product of the light direction and the normal (the orientation of a surface)
+  '  float nDotL = max(dot(u_LightDirection, normal), 0.0);\n' +
+     // Calculate the color due to diffuse reflection
+  '  vec3 diffuse = u_DiffuseLight * a_Color.rgb * nDotL;\n' +
+     // Calculate the color due to ambient reflection
+  '  vec3 ambient = u_AmbientLight * a_Color.rgb;\n' +
+     // Add the surface colors due to diffuse reflection and ambient reflection
+  '  v_Color = vec4(diffuse + ambient, a_Color.a);\n' + 
+  '}\n';
+
+  var u_AmbientLight = gl.getUniformLocation(gl.program, 'u_AmbientLight');
+  gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
+
+```
+
+显然，物体的运动会改变每个表面的法向量，从而导致光照效果发生变化。
+
+#### 运动物体的光照效果
+
+立方体旋转时，每个表面的法向量也会随之变化。下图中，我们沿着z轴负方向观察一个立方体，最左边时立方体的初始状态，途中标出了立方体由侧面的法向量（1，0，0），它指向x轴正方向，然后对该立方体进行变换，观察由侧面法向量随之变化的情况。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/20041032.jpg)
+
+- 平移变换不会改变法向量，因为平移不会改变物体的方向。
+
+- 旋转变换会改变法向量，因为旋转改变了物体的方向。
+
+- 缩放变换对法向量的影响较为复杂。
+
+  缩放比例在所有的轴上都一致的话，那么法向量就不会变化。最后，即使物体在某些轴上的缩放比例并不一致，法向量也并不一定会变化。
+
+#### 魔法矩阵：逆转置矩阵
+
+对顶点进行变换的矩阵称为模型矩阵。
+
+如何计算变换之后的**法向量**呢？
+
+只要将变换之前的法向量乘以**模型矩阵**的**逆转置矩阵**即可。
+
+所谓逆转置矩阵，就是逆矩阵的转置。
+
+逆矩阵的含义是，如果矩阵M的逆矩阵是R，那么R\*M或M\*R的结果都是单位矩阵。
+
+转置的意思是，将矩阵的行列进行调换。
+
+**规则：用法向量乘以模型矩阵的逆转置矩阵，就可以求的变换后的法向量。**
+
+求逆转置矩阵的两个步骤：
+
+- 求原矩阵的逆矩阵。
+- 将上一步求得的逆矩阵进行转置。
+
+| 方法                      | 描述         |
+| ----------------------- | ---------- |
+| Matrix4.setInverseOf(m) | 使自身成为m的逆矩阵 |
+| Matrix4.transpose       | 对自身进行转置    |
+
+#### LightedTranslatedRotatedCube
+
+```js
+var VSHADER_SOURCE =
+  'attribute vec4 a_Position;\n' +
+  'attribute vec4 a_Color;\n' +
+  'attribute vec4 a_Normal;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform mat4 u_NormalMatrix;\n' +   // Transformation matrix of the normal
+  'uniform vec3 u_LightColor;\n' +     // Light color
+  'uniform vec3 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
+  'uniform vec3 u_AmbientLight;\n' +   // Ambient light color
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+     // Recalculate the normal based on the model matrix and make its length 1.
+  '  vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
+     // Calculate the dot product of the light direction and the orientation of a surface (the normal)
+  '  float nDotL = max(dot(u_LightDirection, normal), 0.0);\n' +
+     // Calculate the color due to diffuse reflection
+  '  vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
+     // Calculate the color due to ambient reflection
+  '  vec3 ambient = u_AmbientLight * a_Color.rgb;\n' +
+     // Add the surface colors due to diffuse reflection and ambient reflection
+  '  v_Color = vec4(diffuse + ambient, a_Color.a);\n' + 
+  '}\n';
+
+// Fragment shader program
+var FSHADER_SOURCE =
+  '#ifdef GL_ES\n' +
+  'precision mediump float;\n' +
+  '#endif\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_FragColor = v_Color;\n' +
+  '}\n';
+···
+var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
+  var u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
+  var u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor');
+  var u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection');
+  var u_AmbientLight = gl.getUniformLocation(gl.program, 'u_AmbientLight');
+  if (!u_MvpMatrix || !u_NormalMatrix || !u_LightColor || !u_LightDirection || !u_AmbientLight) { 
+    console.log('Failed to get the storage location');
+    return;
+  }
+
+  // Set the light color (white)
+  gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
+  // Set the light direction (in the world coordinate)
+  var lightDirection = new Vector3([0.0, 3.0, 4.0]);
+  lightDirection.normalize();     // Normalize
+  gl.uniform3fv(u_LightDirection, lightDirection.elements);
+  // Set the ambient light
+  gl.uniform3f(u_AmbientLight, 0.2, 0.2, 0.2);
+
+  var modelMatrix = new Matrix4();  // Model matrix
+  var mvpMatrix = new Matrix4();    // Model view projection matrix
+  var normalMatrix = new Matrix4(); // Transformation matrix for normals
+
+  // Calculate the model matrix
+  modelMatrix.setTranslate(0, 0.9, 0); // Translate to the y-axis direction
+  modelMatrix.rotate(90, 0, 0, 1);     // Rotate 90 degree around the z-axis
+  // Calculate the view projection matrix
+  mvpMatrix.setPerspective(30, canvas.width/canvas.height, 1, 100);
+  mvpMatrix.lookAt(3, 3, 7, 0, 0, 0, 0, 1, 0);
+  mvpMatrix.multiply(modelMatrix);
+  // Pass the model view projection matrix to u_MvpMatrix
+  gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
+
+  // Calculate the matrix to transform the normal based on the model matrix
+  //根据模型矩阵计算用来变换法向量的矩阵
+  normalMatrix.setInverseOf(modelMatrix);
+  normalMatrix.transpose();
+  // Pass the transformation matrix for normals to u_NormalMatrix
+  gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix.elements);
+
+  // Clear color and depth buffer
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  // Draw the cube
+  gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+```
+
+#### 点光源光
+
+与平行光相比，点光源光发出的光，在三维空间的不同位置上其方向也不同。所以，在对点光源光下的物体进行着色时，需要在每个入射点计算点光源光在该处的方向。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/21789363.jpg)
+
+着色器需要知道点光源光自身所在的位置，而不是光的方向。
+
+#### PointLightedCube
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/97723135.jpg)
+
+```js
+var VSHADER_SOURCE =
+  'attribute vec4 a_Position;\n' +
+  'attribute vec4 a_Color;\n' +
+  'attribute vec4 a_Normal;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform mat4 u_ModelMatrix;\n' +   // Model matrix
+  'uniform mat4 u_NormalMatrix;\n' +  // Transformation matrix of the normal
+  'uniform vec3 u_LightColor;\n' +    // Light color
+  'uniform vec3 u_LightPosition;\n' + // Position of the light source (in the world coordinate system)
+  'uniform vec3 u_AmbientLight;\n' +  // Ambient light color
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+     // Recalculate the normal based on the model matrix and make its length 1.
+  '  vec3 normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
+     // Calculate world coordinate of vertex
+  '  vec4 vertexPosition = u_ModelMatrix * a_Position;\n' +
+     // Calculate the light direction and make it 1.0 in length
+  '  vec3 lightDirection = normalize(u_LightPosition - vec3(vertexPosition));\n' +
+     // The dot product of the light direction and the normal
+  '  float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
+     // Calculate the color due to diffuse reflection
+  '  vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
+     // Calculate the color due to ambient reflection
+  '  vec3 ambient = u_AmbientLight * a_Color.rgb;\n' +
+     //  Add the surface colors due to diffuse reflection and ambient reflection
+  '  v_Color = vec4(diffuse + ambient, a_Color.a);\n' + 
+  '}\n';
+
+```
+
+点光源向四周放射光线，所以顶点出的光线方向是由点光源光坐标减去顶点坐标而得到的矢量。
+
+`u_LightPosition`点光源坐标
+
+`lightDirection`光线方向矢量，需要进行归一化
+
+但是逐顶点处理点光源光的光照效果时仍然会出现不自然现象
+
+出现该现象的原因是，WebGL系统会根据顶点的颜色，内插出表面上每个片元的颜色。实际上，点光源光照射到一个表面上，所产生的效果（即每个片元获得的颜色）与简单实用4个顶点颜色内插出的效果并不完全相同（在某些极端情况下甚至很不一样），所以为了使效果更加逼真，我们需要对表面的每一点计算光照效果。
+
+如果使用一个球体，两者的差异可能会更明显。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/92586591.jpg)
+
+逐顶点计算
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/19865806.jpg)
+
+逐片元计算
+
+#### 更逼真：逐片元光照
+
+```js
+var VSHADER_SOURCE =
+  'attribute vec4 a_Position;\n' +
+  'attribute vec4 a_Color;\n' +
+  'attribute vec4 a_Normal;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform mat4 u_ModelMatrix;\n' +    // Model matrix
+  'uniform mat4 u_NormalMatrix;\n' +   // Transformation matrix of the normal
+  'varying vec4 v_Color;\n' +
+  'varying vec3 v_Normal;\n' +
+  'varying vec3 v_Position;\n' +
+  'void main() {\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+     // Calculate the vertex position in the world coordinate
+  '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
+  '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
+  '  v_Color = a_Color;\n' + 
+  '}\n';
+
+// Fragment shader program
+var FSHADER_SOURCE =
+  '#ifdef GL_ES\n' +
+  'precision mediump float;\n' +
+  '#endif\n' +
+  'uniform vec3 u_LightColor;\n' +     // Light color
+  'uniform vec3 u_LightPosition;\n' +  // Position of the light source
+  'uniform vec3 u_AmbientLight;\n' +   // Ambient light color
+  'varying vec3 v_Normal;\n' +
+  'varying vec3 v_Position;\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+     // Normalize the normal because it is interpolated and not 1.0 in length any more
+  '  vec3 normal = normalize(v_Normal);\n' +
+     // Calculate the light direction and make its length 1.
+  '  vec3 lightDirection = normalize(u_LightPosition - v_Position);\n' +
+     // The dot product of the light direction and the orientation of a surface (the normal)
+  '  float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
+     // Calculate the final color from diffuse reflection and ambient reflection
+  '  vec3 diffuse = u_LightColor * v_Color.rgb * nDotL;\n' +
+  '  vec3 ambient = u_AmbientLight * v_Color.rgb;\n' +
+  '  gl_FragColor = vec4(diffuse + ambient, v_Color.a);\n' +
+  '}\n';
+
+```
+
+为了逐片元地计算光照，你需要知道：
+
+1. 片言在世界坐标系下的坐标。
+2. 片元表面的法向量。
+
+可以在顶点着色器中，将顶点的**世界坐标**和**法向量**以varying变量的形式传入片元着色器，片元着色器中的同名变量就已经是内插后的逐片元值了。
+
+片元的世界坐标
+
+片元的法向量
+
+#### 总结
+
+在正确的光照效果下，三维场景会更加逼真。
+
+
+
+### 九、层次模型
+
+这一章是涉及WebGL的核心特性的最后一章。
+
+- 由多个简单的部件组成的复杂模型。
+- 为复杂物体建立具有层次化结构的三维模型。
+- 使用模型矩阵，模拟机器人手臂上的关节运动。
+- 研究initShader函数的实现，了解初始化着色器的内部细节。
+
+#### 多个简单模型组成的复杂模型
+
+绘制由多个小部件组成的复杂模型，最关键的问题是如何处理模型的整体移动，以及各个小部件间的相对移动。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/25060253.jpg)
+
+手臂的每个部分可以围绕关节运动
+
+- 上臂可以绕肩关节旋转运动，并带动前臂、手掌、手指动
+
+- 前臂可绕肘关节···
+
+  ···
+
+总之，当手臂的某个部位运动时，位于该部位以下的其他部位会随之一起运动，而位于该部位以上的其他部位不受影响。此外，这里的所有运动，都是围绕某个关节的转动。
+
+#### 层次结构模型
+
+绘制机器人手臂这样一个复杂的模型，最常用的方法就是按照模型中各个部件的层次顺序，从高到低逐一绘制，并在每个关节上应用模型矩阵。
+
+肩关节、肘关节、腕关节、指关节都有各自的旋转矩阵。
+
+三维模型和现实中的人类或机器人不一样，它的部件并没有真正连接在一起。
+
+···
+
+#### 单关节模型
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/34322001.jpg)
+
+#### JointMode
+
+和以前的程序比，main()函数基本没有变化，主要的变化发生在initVertexBuffers()函数中，它将arm1和arm2的数据写入了相应的缓冲区。以前程序中的立方体都是以原点为中心，且边长为2.0；本例为了更好地模拟机器人手臂，使用下图所示的立方体，原点位于底面中心，底面是变长为3.0的正方形，高度为10.0。将原点置于立方体的地面中心，是为了便于使立方体绕关节转动。arm1和arm2都使用这个立方体。
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/34347702.jpg)
+
+main()函数首先根据可视空间，视点和视线方向计算出克视图投影矩阵。
+
+然后在键盘事件响应函数中调用keydown()函数，通过方向键控制机器人的手臂运动。
+
+#### 绘制层次模型draw()
+
+draw()函数的任务是绘制机器人手臂。
+
+draw()函数内部调用了drawBox()函数，每调用一次绘制一个部件，先绘制下方较细的arm1，再绘制上方较粗的arm2.
+
+drawBox()函数的任务是绘制机器人手臂的某一个立方体部件，如上臂或前臂。
+
+要模拟现实中的人类手臂，应该对皮肤进行建模。
+
+#### 多节点模型
+
+![](http://p1yseh5av.bkt.clouddn.com/18-1-26/60946435.jpg)
+
+#### MultiJointModel
+
+···
+
+
+
+#### 着色器和着色器程序对象：initShaders()函数的作用
+
+initShader的7个步骤：
+
+1. 创建着色器对象（gl.createShader()）
+2. 向着色器对象中填充着色器程序的源代码（gl.shaderSource()）
+3. 编译着色器(gl.compileShader())
+4. 创建程序对象（gl.createProgram()）
+5. 为程序对象分配着色器(gl.attachShader())
+6. 连接程序对象(gl.linkProgram())
+7. 使用程序对象(gl.useProgram())
+
+**着色器对象：** 着色器对象管理一个顶点着色器或一个片元着色器。每一个着色器都有一个着色器对象。
+
+**程序对象：**程序对象是管理着色器对象的容器。WebGL中，一个程序对象必须包含一个顶点着色器和一个片元着色器。
+
+
+
+#### 总结
+
+本章讨论了如何绘制和操作由多个部件组成的层次化模型。
+
+
+
+### 十、高级技术
+
+#### 用鼠标控制物体旋转
+
+我们可以这样来实现：在鼠标左键按下时记录鼠标的初始坐标，然后在鼠标移动的时候用当前坐标减去初始坐标，获得鼠标的位移，然后根据这个位移来计算旋转矩阵。
+
+#### RotateObject
+
+```js
+var currentAngle = [0.0, 0.0];
+```
+
+#### 选中物体
+
+选中三维物体比选中二维物体更加复杂，因为我们需要更多的数学过程来计算鼠标是否悬浮在某个图形上。
+
+示例程序用一个简单的技巧解决了这一个问题。
+
+如何实现选中物体？
+
+1. 当鼠标左键按下时，将整个立方体重绘为单一的红色。
+2. 读取鼠标点击处的像素颜色。
+3. 使用立方体原来的颜色对其进行重绘。
+4. 如果第二步读取到的颜色是红色，就显示消息“The cube was selected！”。
+
+如果不加以处理，那么当立方体被重绘为红色时，就可以看到这个立方体闪烁了一下，而且闪烁的一瞬间时红色的。然后我们读取鼠标点击处的像素在这一瞬间的颜色值，就可以通过判断该颜色是否为红色来确定鼠标是否点击在了立方体上。
+
+为了使用户看不到立方体的这一闪烁过程，我们还得在取出像素颜色之后立即将立方体重绘成原来的样子。
+
+```js
+var VSHADER_SOURCE = `
+	uniform mat4 u_MvpMatrix;
+	uniform bool u_Clicked;
+	varying vec4 v_Color;
+	void main(){
+		gl_Position = u_MvpMatrix*a_Position;
+		if(u_Clicked){	
+			v_Color = vec4(1.0, 0.0, 0.0, 1.0);
+		} else {
+			v_Color = a_Color;	
+		}
+	}
+`;
+canvas.onmousedown = function(ev){
+  var x = ev.clientX, y = ev.clientY;
+  var rect = ev.target.getBoundingClientRect();
+  if(rect.left<=x&&x<rect.right&&rect.top<=y&&y<rect.bottom){
+    var x_in_canvas = x - rect.left,
+        y_in_canvas = rect.bottom - y;
+    var picked = check(gl, n, x_in_canvas, y_in_canvas, currentAngle, u_Clicked, viewProjMatrix,u_MvpMatrix);
+    if(picked) alert('Cube was selected');
+  }
+}
+function check(...){
+  var picked = false;
+  gl.uniform1i(u_Clicked, 1);
+  draw(gl, n, currentAngle, viewProjMatrix, u_MvpMatrix);
+  var pixels = new Uint8Array(4);
+  gl.readPixels(x,y,1,1,gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  if(pixels[0]==255) picked = true;
+  gl.uniform1i(u_Clicked, 0);
+  draw(gl, n, currentAngle, viewProjMatrix, u_MvpMatrix);
+  return picked;
+}
+```
+
+#### 选中一个表面
+
+可以使用同样的方法来选中物体的某一个表面。
+
+PickObject用户在点击鼠标时，将立方体重绘为红色，然后读取鼠标点击位置的像素颜色，根据其是红色或是黑色来判断点击时鼠标是否在立方体上，即是否选中了立方体。而PickFace则更进一步，在用户点击鼠标时重绘立方体，并将“每个像素属于哪个面”的信息写入到颜色缓冲区的∂分量中。
+
+#### PickFace
+
+```js
+var VSHADER_SOURCE = `
+	attribute vec4 a_Position;
+	attribute vec4 a_Color;
+	attribute float a_Face; //表面编号，不可使用int类型
+	uniform mat4 u_MvpMatrix;
+	uniform int u_PickedFace;
+	varying vec4 v_Color;
+	void main(){
+		gl_Position = u_MvpMatrix*a_Position;
+		int face = int(a_Face);//转为int类型
+		vec3 color = (face==u_PickedFace)?vec3(1.0):a_Color.rgb;
+		if(u_PickedFace==0) {
+			v_Color = vec4(color, a_Face/255.0);
+		} else {
+			v_Color = vec4(color, a_Color);
+		}
+	}
+`;
+gl.uniform1i(u_PickedFace, -1);
+var currentAngle = 0.0;
+canvas.onmousedown = function(ev) {
+  var x = ev.clientX, y = ev.clientY;
+  var rect = ev.target.getBoundingClientRect();
+  if(rect.left<=x&&x<rect.right&&rect.top<=y&&y<rect.bottom){
+    var x_in_canvas = x - rect.left,
+        y_in_canvas = rect.bottom - y;
+    var face = checkFace(...);
+    gl.unifrom1i(u_PickedFace, face);                     
+    draw(gl, n, currentAngle, viewProjMatrix, u_MvpMatrix);
+  }
+}
+var faces = new Uint8Array([
+  1, 1, 1, 1,
+  2, 2, 2, 2,
+  ...
+  6, 6, 6, 6,
+]);
+
+```
 
 
 
@@ -1777,27 +2448,6 @@ var indices = new Uint8Array([       // Indices of the vertices
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-fdsaf
 
 
 
