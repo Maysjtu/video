@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+  	<link href="http://vjs.zencdn.net/6.6.3/video-js.css" rel="stylesheet">
+  	<style type="text/css">
+  		* {
+  			margin: 0;
+  			padding: 0;
+  		}
+  		.container {
+  			width: 800px;
+/*  			height: 200px;
+  			overflow: hidden;*/
+  		}
+  	</style>
+</head>
+<body>
+ <div class="container">
+  <audio src="../../assets/12.wma" width="300" controls height="200" ></audio>
+
+ 	  <video id="my-video" class="video-js" controls="controls">
+      <!-- <source src="http://yunxi-transcode-cluster.oss-cn-shanghai.aliyuncs.com/media/large.mp4" type='video/mp4'> -->
+    	<source src="0" type='video/mayde'>
+    	<!-- <track kind="subtitles" src="./test.vtt" srclang="en" label="English"> -->
+    	<track kind="captions" src="./test.vtt" srclang="en" label="English">
+    	<track kind="descriptions" src="./test.vtt" srclang="en" label="English">
+
+    <p class="vjs-no-js">
+      To view this video please enable JavaScript, and consider upgrading to a web browser that
+      <a href="http://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
+    </p>
+  </video>
+<!-- 
+  <video id="my-video1"  controls="controls">
+      <source src="../../assets/bunny.mp4" type='video/mp4'>
+      <track kind="captions" src="./test.vtt" srclang="en" label="English">
+      <track kind="descriptions" src="./test.vtt" srclang="en" label="English">
+
+    <p class="vjs-no-js">
+      To view this video please enable JavaScript, and consider upgrading to a web browser that
+      <a href="http://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
+    </p>
+  </video> -->
+
+ </div>
+
+    <script src="http://vjs.zencdn.net/6.6.3/video.js"></script>
+
+    <script type="text/javascript">
+    	let myVideo = document.getElementById('my-video');
+    	let nodes = myVideo.childNodes;
+    	console.log(nodes);
+    	console.log(nodes[1]);
+    	console.log(nodes[1].track);
+    	videojs.addLanguage('es', {
+		  Play: 'Reproducción',
+		  Pause: '暂停',
+		  Mute: '静音',
+		  'Current Time': 'Tiempo reproducido',
+		  'Duration Time': 'Duración total',
+		  'Remaining Time': 'Tiempo restante',
+		});
+      videojs.use('video/mayde', function(player) {
+
+        // middleware are expected to return an object with the methods on it.
+        // It can be a plain object or an instance of something.
+        return {
+
+          // setSource allows you to tell Video.js whether you're going to be handling the source or not
+          setSource(srcObj, next) {
+
+
+              // pass null as the first argument to say everything is going fine and we can handle it.
+              next(null, {
+                src: '../../assets/cg.mp4',
+                type: 'video/mp4'
+              })
+          }
+        };
+      });
+
+      player = videojs('my-video', {
+      controlBar: {
+        children: [
+          'playToggle',
+          'volumePanel',
+          'currentTimeDisplay',
+          'timeDivider',
+          'durationDisplay',
+          'progressControl',
+          'liveDisplay',
+          'remainingTimeDisplay',
+          'customControlSpacer',
+          'playbackRateMenuButton',
+          'chaptersButton',
+          'descriptionsButton',
+          'subtitlesButton',
+          'captionsButton',
+          'subsCapsButton',
+          'audioTrackButton',
+          'fullscreenToggle'
+        ]
+      },
+      fluid: true
+
+    });
+  //     window.player = videojs('my-video', {
+  //     controlBar: {
+  //       children: [
+  //         'playToggle',
+  //         'volumePanel',
+  //         'currentTimeDisplay',
+  //         'timeDivider',
+  //         'durationDisplay',
+  //         'progressControl',
+  //         'liveDisplay',
+  //         'remainingTimeDisplay',
+  //         'customControlSpacer',
+  //         'playbackRateMenuButton',
+  //         'chaptersButton',
+  //         'descriptionsButton',
+  //         'subtitlesButton',
+  //         'captionsButton',
+  //         'subsCapsButton',
+  //         'audioTrackButton',
+  //         'fullscreenToggle'
+  //       ]
+  //     },
+  //     autoplay: true,
+		//   preload: 'auto',
+		//   width: '640px',
+		//   // aspectRatio: '16:9',
+		//   fluid: true,
+		//   language: 'es',
+		//   notSupportedMessage: '呵呵，不支持',
+	 //      playbackRates: [0.5, 1, 1.5, 2, 4, 8],
+	 //      controlBar: {
+		//     fullscreenToggle: true
+		//   }
+		// });
+                // Create a track object.
+    let track = new videojs.AudioTrack({
+      id: 'my-spanish-audio-track',
+      kind: 'translation',
+      label: 'Spanish',
+      language: 'es'
+    });
+      // Create a  track object.
+  var trackV = new videojs.VideoTrack({
+    id: 'my-alternate-video-track',
+    kind: 'commentary',
+    label: 'Director\'s Commentary',
+    language: 'en'
+  });
+
+  // Add the track to the player's video track list.
+  player.videoTracks().addTrack(trackV);
+
+    // Add the track to the player's audio track list.
+    player.audioTracks().addTrack(track);
+    </script>
+</body>
+</html>

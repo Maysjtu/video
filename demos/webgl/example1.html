@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<style type="text/css">
+		.canvas {
+			width: 640px;
+			height: 360px;
+		}
+	</style>
+</head>
+<body>
+	<canvas class="canvas" id="canvas"></canvas>
+	<script type="text/javascript">
+	    var canvas = document.getElementById('canvas');
+	    var ctx = canvas.getContext('2d');
+		ctx.beginPath();
+		ctx.moveTo(10,10);
+		ctx.lineTo(30,40);
+		ctx.lineTo(50,10);
+		ctx.lineTo(10,10);
+		ctx.fillStyle = '#f00';
+		ctx.fill();
+		// ctx.stroke();
+
+	</script>
+</body>
+</html>

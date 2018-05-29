@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Transition</title>
+    <style type="text/css">
+        body {
+            width: 100%;
+            text-align: center;
+        }
+        #canvas {
+            display: inline-block;
+            margin: 0 auto;
+        }
+        .dn {
+            display: none;
+        }
+    </style>
+    <script type="text/javascript" src="./three.min.js"></script>
+</head>
+<body>
+<canvas id="canvas" width="640" height="360"></canvas>
+<video id="video" class="" src="./assets/cg.mp4" autoplay controls width="480" height="320"></video>
+<video id="video1" class="dn" src="./assets/cg.mp4"  preload="auto" controls width="480" height="320"></video>
+<img id="image2" class="dn" src="assets/2.jpg" alt="">
+<div id="vertexShader" class="dn">
+    attribute vec2 a_Position;
+    varying vec2 yxuv;
+
+    void main(){
+        gl_Position = vec4(a_Position,0.0,1.0);
+        yxuv = vec2(0.5, 0.5) * (a_Position + vec2(1.0, 1.0));
+    }
+</div>
+<div id="fragmentShader" class="dn">
+    precision mediump float;
+    precision highp float;
+    varying vec2 yxuv;
+
+    uniform float progress, ratio;
+
+    uniform sampler2D u_Sampler0, u_Sampler1;
+    vec4 getFromColor(vec2 uv){
+        return texture2D(u_Sampler0, uv);
+    }
+    vec4 getToColor(vec2 uv){
+        return texture2D(u_Sampler1, uv);
+    }
+
+    vec4 transition(vec2 p) {
+      float x = progress;
+      x=smoothstep(.0,1.0,(x*2.0+p.x-1.0));
+      return mix(getFromColor((p-.5)*(1.-x)+.5), getToColor((p-.5)*x+.5), x);
+    }
+    void main(){
+        gl_FragColor=transition(yxuv);
+    }
+</div>
+<script type="text/javascript">
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+    var renderer = new THREE.WebGLRenderer();
+    renderer.setSize( 640, 360);
+    document.body.appendChild( renderer.domElement );
+
+
+    var geometry = new THREE.PlaneGeometry( 5, 20, 32 );
+    var video = document.getElementById( 'video' );
+    var video1 = document.getElementById( 'video1' );
+
+
+    videoTexture = new THREE.Texture( video );
+    videoTexture.minFilter = THREE.LinearFilter;
+    videoTexture.magFilter = THREE.LinearFilter;
+    
+    var movieMaterial = new THREE.MeshBasicMaterial( { map: videoTexture, overdraw: true, side:THREE.DoubleSide } );
+    // the geometry on which the movie will be displayed;
+    //      movie image will be scaled to fit these dimensions.
+    var movieGeometry = new THREE.PlaneGeometry( 10, 7);
+    var movieScreen = new THREE.Mesh( movieGeometry, movieMaterial );
+    movieScreen.position.set(0,0,0);
+    scene.add(movieScreen);
+
+
+    camera.position.z = 5;
+
+    var animate = function () {
+        requestAnimationFrame( animate );
+        if ( videoTexture && video.readyState === video.HAVE_ENOUGH_DATA ) {
+             videoTexture.needsUpdate = true;
+         }
+
+        renderer.render(scene, camera);             
+    };
+
+    renderer.render( scene, camera );
+
+
+    animate();
+
+
+
+
+</script>
+</body>
+</html>

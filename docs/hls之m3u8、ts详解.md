@@ -12,6 +12,20 @@
 
 M3U8文件在很多地方也叫做Playlist file。
 
+M3U8分顶级M3U8和二级M3U8， 顶级M3U8主要是做多码率适配的， 二级M3U8才是真正的切片文件，
+
+客户端默认会首先选择码率最高的请求，如果发现码率达不到，会请求较低码率的流
+
+一个实际使用中的顶级M3U8文件如下 ：
+
+```
+#EXTM3U
+#EXT-X-STREAM-INF:PROGRAM-ID=201273221265,BANDWIDTH=358400
+11.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=201273221265,BANDWIDTH=972800
+22.m3u8
+```
+
 简单的例子：
 
 ![](http://p1yseh5av.bkt.clouddn.com/18-1-3/27046732.jpg)
@@ -22,15 +36,22 @@ M3U8文件在很多地方也叫做Playlist file。
 
 ​	一个M3U的 Playlist 就是一个由多个独立行组成的文本文件，每行由回车/换行区分。每一行可以是一个URI  空白行或是以”#“号开头的字符串，并且空格只能存在于一行中不同元素间的分隔。   
 
-​	一个URI 表示一个媒体段或是”variant Playlist file“（最多支持一层嵌套，即一个mm3u8文件中嵌套另一个m3u8）
+​	一个URI 表示一个媒体段或是”variant Playlist file“（最多支持一层嵌套，即一个m3u8文件中嵌套另一个m3u8）
 
 ​	以”#EXT“开头的表示一个”tag“，否则表示注释。
 
 #### 2.2 Tag
 
-**#EXTM3U**   每个M3U文件第一行必须是这个tag
+##### Basic Playlist Tags
 
-**#EXTINF** 
+- [EXTM3U](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.1.1) 每个M3U文件第一行必须是这个tag
+
+
+- [EXT-X-VERSION](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.1.2)
+
+##### Media Segment Tags
+
+- [EXTINF](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.1)
 
 指定每个媒体段（ts）的持续时间，这个仅对其后面的URI有效，每两个媒体段URI间被这个tag分隔开。
 
@@ -40,17 +61,70 @@ M3U8文件在很多地方也叫做Playlist file。
 duration表示持续的时间（秒）”Durations MUST be integers if the protocol version of the Playlist file is less than 3“，否则可以是浮点数。
 ```
 
-**#EXT-X-BYTERANGE**
+- [EXT-X-BYTERANGE](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.2)
 
-表示媒体段是一个媒体URI资源中的一段，只对气候的media URI有效，格式如下：
+表示媒体片段是URI中的一段
+
+The EXT-X-BYTERANGE tag indicates that a Media Segment is a sub-range of the resource identified by its URI.  It applies only to the next URI line that follows it in the Playlist.  Its format is:
 
 ```
 #EXT-X-BYTERANGE:<n>[@o]
 
+where n is a decimal-integer indicating the length of the sub-range in bytes.  If present, o is a decimal-integer indicating the start of the sub-range, as a byte offset from the beginning of the resource.If o is not present, the sub-range begins at the next byte following the sub-range of the previous Media Segment.
+If o is not present, a previous Media Segment MUST appear in the Playlist file and MUST be a sub-range of the same media resource, or the Media Segment is undefined and the Playlist MUST be rejected.
+
 其中n表示这个区间的大小，o表示在URI中的offset。”The EXT-X-BYTERANGE tag appeared in version 4 of the protocol“。
 ```
 
-**#EXT-X-TARGETDURATION**
+- [EXT-X-DISCONTINUITY](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.3)
+
+The EXT-X-DISCONTINUITY tag indicates a discontinuity between the Media Segment that follows it and the one that preceded it.
+
+```
+Its format is:
+#EXT-X-DISCONTINUITY
+The EXT-X-DISCONTINUITY tag MUST be present if there is a change in
+any of the following characteristics:
+o  file format
+o  number, type and identifiers of tracks
+o  timestamp sequence
+The EXT-X-DISCONTINUITY tag SHOULD be present if there is a change in
+any of the following characteristics:
+o  encoding parameters
+o  encoding sequence
+```
+
+- [EXT-X-KEY](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.4)
+
+媒体片段也许是被加密过的，这个字段用来指示如何去解密它们。
+
+```
+  Media Segments MAY be encrypted.  The EXT-X-KEY tag specifies how to decrypt them.
+  It applies to every Media Segment that appears between it and the next EXT-X-KEY tag in the Playlist file with the same KEYFORMAT attribute (or the end of the Playlist file).
+  Two or more EXT-X-KEY tags with different KEYFORMAT attributes MAY apply to the same Media Segment if they ultimately produce the same decryption key.  
+  The format is:
+  #EXT-X-KEY:<attribute-list>
+```
+
+- [EXT-X-MAP](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.5)
+
+EXT-X-MAP标签指定如何获取解析适用的媒体片段所需的媒体初始化部分。
+
+- [EXT-X-PROGRAM-DATE-TIME](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.2.6)
+
+将一个绝对时间或是日期和一个媒体段中的第一个sample相关联，只对下一个meida URI有效，格式如下：
+
+```
+The EXT-X-PROGRAM-DATE-TIME tag associates the first sample of a Media Segment with an absolute date and/or time.  It applies only to the next Media Segment.
+#EXT-X-PROGRAM-DATE-TIME:<YYYY-MM-DDThh:mm:ss.SSSZ>
+For example:
+#EXT-X-PROGRAM-DATE-TIME:2010-02-19T14:54:23.031+08:00
+EXT-X-PROGRAM-DATE-TIME tags SHOULD provide millisecond accuracy.
+```
+
+##### Media Playlist Tags
+
+- [EXT-X-TARGETDURATION](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.1)
 
 指定最大的媒体段时间长（秒）。所以#EXTINF中指定的时间必须小于或者等于这个最大值。
 
@@ -58,62 +132,163 @@ duration表示持续的时间（秒）”Durations MUST be integers if the proto
 
 ```
 #EXT-X-TARGETDURATION:<s>    
-
 s表示最大的秒数
 ```
 
-**#EXT-X-MEDIA-SEQUENCE**
-
-每一个media URI在Playlist中只有唯一的序号，相邻之间序号+1。
+- [EXT-X-MEDIA-SEQUENCE](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.2)
 
 ```
+The EXT-X-MEDIA-SEQUENCE tag indicates the Media Sequence Number of the first Media Segment that appears in a Playlist file. 
 #EXT-X-MEDIA-SEQUENCE:<number>
 ```
 
-**#EXT-X-KEY**
+- [EXT-X-DISCONTINUITY-SEQUENCE](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.3)
 
-表示怎么对media segments进行解码。其作用范围是下次该tag出现前的所有media URI，格式如下
-
-```
-#EXT-X-KEY:<attribute-list>
-```
-
-**#EXT-X-PROGRAM-DATE-TIME**
-
-将一个绝对时间或是日期和一个媒体段中的第一个sample相关联，只对下一个meida URI有效，格式如下：
 
 ```
-#EXT-X-PROGRAM-DATE-TIME:<YYYY-MM-DDThh:mm:ssZ>                      
-
-For example: #EXT-X-PROGRAM-DATE-TIME:2010-02-19T14:54:23.031+08:00
+The EXT-X-DISCONTINUITY-SEQUENCE tag allows synchronization between
+different Renditions of the same Variant Stream or different Variant
+Streams that have EXT-X-DISCONTINUITY tags in their Media Playlists.
+Its format is:
+#EXT-X-DISCONTINUITY-SEQUENCE:<number>
 ```
 
-**#EXT-X-ALLOW-CACHE**
+- [EXT-X-ENDLIST](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.4)
+
+```
+The EXT-X-ENDLIST tag indicates that no more Media Segments will be
+added to the Media Playlist file.  It MAY occur anywhere in the Media
+Playlist file.  Its format is:
+#EXT-X-ENDLIST
+```
+
+- [EXT-X-PLAYLIST-TYPE](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.3.5)
+
+```
+The EXT-X-PLAYLIST-TYPE tag provides mutability information about the Media Playlist file.  It applies to the entire Media Playlist file. It is OPTIONAL. 
+Its format is:
+#EXT-X-PLAYLIST-TYPE:<EVENT|VOD>
+If the EXT-X-PLAYLIST-TYPE value is EVENT, Media Segments can only be added to the end of the Media Playlist.  If the EXT-X-PLAYLIST-TYPE value is VOD, the Media Playlist cannot change.
+```
+
+- [EXT-X-START](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.5.2)
+
+```
+The EXT-X-START tag indicates a preferred point at which to start playing a Playlist.  By default, clients SHOULD start playback at this point when beginning a playback session.  This tag is OPTIONAL.
+Its format is:
+#EXT-X-START:<attribute-list>
+The following attributes are defined:
+ 	  TIME-OFFSET
+      The value of TIME-OFFSET is a signed-decimal-floating-point number
+      of seconds.  A positive number indicates a time offset from the
+      beginning of the Playlist.  A negative number indicates a negative
+      time offset from the end of the last Media Segment in the
+      Playlist.  This attribute is REQUIRED.
+
+      The absolute value of TIME-OFFSET SHOULD NOT be larger than the
+      Playlist duration.  If the absolute value of TIME-OFFSET exceeds
+      the duration of the Playlist, it indicates either the end of the
+      Playlist (if positive) or the beginning of the Playlist (if
+      negative).
+
+      If the Playlist does not contain the EXT-X-ENDLIST tag, the TIME-
+      OFFSET SHOULD NOT be within three target durations of the end of
+      the Playlist file.
+
+      PRECISE
+
+      The value is an enumerated-string; valid strings are YES and NO.
+      If the value is YES, clients SHOULD start playback at the Media
+      Segment containing the TIME-OFFSET, but SHOULD NOT render media
+      samples in that segment whose presentation times are prior to the
+      TIME-OFFSET.  If the value is NO, clients SHOULD attempt to render
+      every media sample in that segment.  This attribute is OPTIONAL.
+      If it is missing, its value should be treated as NO.
+
+```
+
+##### Master Playlist Tags
+
+- [EXT-X-MEDIA](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.1)
+
+```
+The EXT-X-MEDIA tag is used to relate Media Playlists that contain
+alternative Renditions (Section 4.3.4.2.1) of the same content.  For
+example, three EXT-X-MEDIA tags can be used to identify audio-only
+Media Playlists that contain English, French and Spanish Renditions
+of the same presentation.  Or two EXT-X-MEDIA tags can be used to
+identify video-only Media Playlists that show two different camera
+angles.
+Its format is:
+#EXT-X-MEDIA:<attribute-list>
+```
+
+- [EXT-X-STREAM-INF](http://tools.ietf.org/html/draft-pantos-http-live-streaming#section-4.3.4.2)
+
+多码率自适应的时候用到过
+
+```
+多码率适配流，
+#EXTM3U
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=1280000
+http://example.com/low.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=2560000
+http://example.com/mid.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=7680000
+http://example.com/hi.m3u8
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=65000,CODECS="mp4a.40.5"
+http://example.com/audio-only.m3u8
+```
+
+##### Other
+
+\#EXT-X-ALLOW-CACHE
 
 是否允许做cache，这个可以在PlayList文件中任意地方出现，并且最多出现一次，作用效果是所有的媒体段。格式如下：
 
 ```
 #EXT-X-ALLOW-CACHE:<YES|NO>   
+The EXT-X-ALLOW-CACHE tag was removed in protocol version 7.
 ```
 
-**#EXT-X-PLAYLIST-TYPE**
+##### Experimental Tags
 
-提供关于PlayList的可变性的信息， 这个对整个PlayList文件有效，是可选的，格式如下：
+m3u8-parser supports 3 additional **Media Segment Tags** not present in the HLS specification.
 
-```
-#EXT-X-PLAYLIST-TYPE:<EVENT|VOD>
+\#EXT-X-CUE-OUT
 
-如果是VOD，则服务器不能改变PlayList 文件；如果是EVENT，则服务器不能改变或是删除PlayList文件中的任何部分，但是可以向该文件中增加新的一行内容。   
-```
-
-**#EXT-X-ENDLIST**
-
-表示PlayList的末尾了，它可以在PlayList中任意位置出现，但是只能出现一个，格式如下：
+The `EXT-X-CUE-OUT` indicates that the following media segment is a break in main content and the start of interstitial content. Its format is:
 
 ```
+#EXT-X-CUE-OUT:<duration>
+```
+
+where `duration` is a decimal-floating-point or decimal-integer number that specifies the total duration of the interstitial in seconds.
+
+```
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXTINF:10,
+0.ts
+#EXTINF:10,
+1.ts
+#EXT-X-CUE-OUT:30
+#EXTINF:10,
+2.ts
+#EXT-X-CUE-OUT-CONT:10/30
+#EXTINF:10,
+3.ts
+#EXT-X-CUE-OUT-CONT:20/30
+#EXTINF:10,
+4.ts
+#EXT-X-CUE-IN
+#EXTINF:10,
+5.ts
+#EXTINF:10,
+6.ts
 #EXT-X-ENDLIST
 ```
-
 
 
 
@@ -254,4 +429,5 @@ PSI提供了使接收机能够自动配置的信息，用于对复用流中的�
 3. [hls之m3u8、ts、h264、AAC流格式详解](http://ju.outofmemory.cn/entry/276905)
 4. [多路复用](https://zh.wikipedia.org/wiki/%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8)
 5. [TS文件格式详解](http://blog.chinaunix.net/uid-24922718-id-3686257.html)
+6. [M3U8文档](https://tools.ietf.org/html/draft-pantos-http-live-streaming-23#section-4.3.2.2)
 

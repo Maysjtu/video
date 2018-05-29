@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Transition</title>
+    <style type="text/css">
+        body {
+            width: 100%;
+            text-align: center;
+        }
+        #canvas {
+            display: inline-block;
+            margin: 0 auto;
+        }
+        .dn {
+            display: none;
+        }
+    </style>
+    <script type="text/javascript" src="./three.min.js"></script>
+</head>
+<body>
+    <!--顶点着色器程序-->
+    <script type="x-shader/x-vertex" id="vertexshader">
+    		varying vec2 yxuv;
+            void main() {
+
+                gl_PointSize = 10.0;
+                gl_Position = vec4( position, 1.0 );
+
+            }
+    </script>
+
+    <!--片元着色器程序-->
+    <script type="x-shader/x-fragment" id="fragmentshader">
+    		varying vec2 yxuv;
+    		uniform sampler2D u_Sampler0;
+
+            void main() {
+                gl_FragColor = texture2D(u_Sampler0, yxuv);
+
+            }
+    </script>
+
+    <script>
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+    var renderer = new THREE.WebGLRenderer();
+    renderer.setSize( 640, 360);
+    document.body.appendChild( renderer.domElement );
+
+
+    /**
+     * 创建模型对象
+     */
+    //类型数组创建顶点数据
+    var vertices = new Float32Array([
+        0.5,  0.5,  0.5,//顶点0
+        -0.5,  0.5,  0.5,//顶点1
+        -0.5, -0.5,  0.5,//顶点2
+        -0.5, -0.5,  0.5,//顶点2
+        0.5, -0.5,  0.5,//顶点3
+        0.5,  0.5,  0.5,//顶点0
+
+    ]);
+    //类型数组格式顶点数据转为BufferAttribute对象
+    var verticesPosition = new THREE.BufferAttribute( vertices, 3);
+    var geometry = new THREE.BufferGeometry();//缓冲几何对象
+    //顶点数据关联着色器程序
+    geometry.addAttribute('position',verticesPosition);
+
+
+    var material=new THREE.ShaderMaterial({
+    	uniforms: {
+					u_Sampler0: { value: new THREE.TextureLoader().load( 'assets/1.jpg' ) }
+				},
+
+        //加载顶点着色器程序
+        vertexShader:   document.getElementById( 'vertexshader' ).textContent,
+
+        //加载片元着色器程序
+        fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
+
+    });//着色器材质对象
+    var points = new THREE.Mesh(geometry,material);//模型对象
+    scene.add(points);//模型添加到场景中
+    
+    renderer.render( scene, camera );
+
+
+
+    </script>
+
+</body>
+</html>

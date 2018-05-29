@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Transition</title>
+    <style type="text/css">
+        body {
+            width: 100%;
+            text-align: center;
+        }
+        #canvas {
+            display: inline-block;
+            margin: 0 auto;
+        }
+        .dn {
+            display: none;
+        }
+    </style>
+    <script type="text/javascript" src="./three.min.js"></script>
+</head>
+<body>
+<canvas id="canvas" width="640" height="360"></canvas>
+<video id="video" class="" src="./assets/bunny.mp4" autoplay controls width="480" height="320"></video>
+<video id="video1" class="" src="./assets/cg.mp4"  preload="auto" controls width="480" height="320"></video>
+<img id="image1" class="dn" src="assets/1.jpg" alt="">
+<img id="image2" class="dn" src="assets/2.jpg" alt="">
+<script id="vertexShader" type="x-shader/x-vertex">
+    attribute vec2 a_Position;
+    varying vec2 yxuv;
+
+    void main(){
+        gl_Position = vec4(a_Position,0.0,1.0);
+        yxuv = vec2(0.5, 0.5) * (a_Position + vec2(1.0, 1.0));
+    }
+</script>
+<script id="fragmentShader" type="x-shader/x-frag">
+    precision mediump float;
+    precision highp float;
+    varying vec2 yxuv;
+
+    uniform float progress, ratio;
+
+    uniform sampler2D u_Sampler0, u_Sampler1;
+    vec4 getFromColor(vec2 uv){
+        return texture2D(u_Sampler0, uv);
+    }
+    vec4 getToColor(vec2 uv){
+        return texture2D(u_Sampler1, uv);
+    }
+
+    vec4 transition(vec2 p) {
+      float x = progress;
+      x=smoothstep(.0,1.0,(x*2.0+p.x-1.0));
+      return mix(getFromColor((p-.5)*(1.-x)+.5), getToColor((p-.5)*x+.5), x);
+    }
+    void main(){
+        gl_FragColor=texture2D(u_Sampler0, yxuv);
+    }
+</script>
+<script type="text/javascript">
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+    var renderer = new THREE.WebGLRenderer();
+    renderer.setSize( 640, 360);
+    document.body.appendChild( renderer.domElement );
+
+
+    var geometry = new THREE.PlaneGeometry( 5, 20, 32 );
+    var video = document.getElementById( 'image1' );
+    var video1 = document.getElementById( 'image2' );
+
+
+    var videoTexture = new THREE.Texture( video );
+    videoTexture.minFilter = THREE.LinearFilter;
+    videoTexture.magFilter = THREE.LinearFilter;
+
+    var videoTexture1 = new THREE.Texture( video1 );
+    videoTexture1.minFilter = THREE.LinearFilter;
+    videoTexture1.magFilter = THREE.LinearFilter;
+
+    var material = new THREE.RawShaderMaterial( {
+
+    uniforms: {
+        progress: { value: 0.5 },
+        ratio: { value: 0.5 },
+        u_Sampler0: { value: new THREE.TextureLoader().load( 'assets/1.jpg' ) },
+
+    },
+
+    vertexShader: document.getElementById( 'vertexShader' ).textContent,
+
+    fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+
+    } );
+    // the geometry on which the movie will be displayed;
+    //      movie image will be scaled to fit these dimensions.
+   var vertices = new Float32Array([
+            -1,  1, 0, 1,
+            -1, -1, 0, 0,
+             1,  1, 1, 1,
+             1, -1, 1, 0
+            ]); 
+    //类型数组格式顶点数据转为BufferAttribute对象
+    var verticesPosition = new THREE.BufferAttribute( vertices, 4 );
+    var geometry = new THREE.BufferGeometry();//缓冲几何对象
+    //顶点数据关联着色器程序
+    geometry.addAttribute('a_Position',verticesPosition);
+
+    var movieScreen = new THREE.Mesh( geometry, material );
+
+    movieScreen.position.set(0,0,0);
+    scene.add(movieScreen);
+
+
+    camera.position.z = 5;
+
+    var animate = function () {
+        requestAnimationFrame( animate );
+        // if ( videoTexture && video.readyState === video.HAVE_ENOUGH_DATA ) {
+        //      videoTexture.needsUpdate = true;
+        //  }
+        //  if ( videoTexture1 && video1.readyState === video1.HAVE_ENOUGH_DATA ) {
+        //      videoTexture1.needsUpdate = true;
+        //  }
+
+        renderer.render(scene, camera);             
+    };
+
+    renderer.render( scene, camera );
+
+
+    animate();
+
+
+
+
+</script>
+</body>
+</html>

@@ -29,7 +29,7 @@ function init(){
 function createTiles(){
 	var offsetX = TILE_CENTER_WIDTH+(PAINTRECT.width-SOURCERECT.width)/2;
 	var offsetY = TILE_CENTER_HEIGHT+(PAINTRECT.height-SOURCERECT.height)/2;
-	var y=0;
+	var y = 0;
 	while(y < SOURCERECT.height){
 		var x=0;
 		while(x < SOURCERECT.width){
@@ -213,7 +213,7 @@ function setPixel(imageData, x, y, pixel){
 function copyPixel(sImageData, sx, sy, dImageData, dx, dy){
 	var spos = (sx + sy * sImageData.width) * 4;
 	var dpos = (dx + dy * dImageData.width) * 4;
-	dImageData.data[dpos] = sImageData.data[spos];     //R
+ƒ	dImageData.data[dpos] = sImageData.data[spos];     //R
 	dImageData.data[dpos+1] = sImageData.data[spos+1]; //G
 	dImageData.data[dpos+2] = sImageData.data[spos+2]; //B
 	dImageData.data[dpos+3] = sImageData.data[spos+3]; //A

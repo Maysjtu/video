@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Transition</title>
+    <style type="text/css">
+        body {
+            width: 100%;
+            text-align: center;
+        }
+        #canvas {
+            display: inline-block;
+            margin: 0 auto;
+        }
+        .dn {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas" width="640" height="360"></canvas>
+<video id="video"  src="./assets/3.mp4" autoplay controls width="480" height="320"></video>
+<video id="video1" class="" src="./assets/3.mp4"  preload="auto" controls width="480" height="320"></video>
+<img id="image2" class="dn" src="assets/2.jpg" alt="">
+<button onclick="doDraw()">draw</button>
+<script type="text/javascript">
+    function initShader(gl, vertexShaderSource, fragmentShaderSource) {
+        var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, vertexShaderSource);
+        gl.compileShader(vertexShader);
+
+        var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, fragmentShaderSource);
+        gl.compileShader(fragmentShader);
+
+        var program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+
+
+        // Check the result of compilation
+        var compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+        if (!compiled) {
+            var error = gl.getShaderInfoLog(fragmentShader);
+            console.log('Failed to compile shader: ' + error);
+            //gl.deleteShader(vertexShader);
+        }
+        console.log(compiled);
+
+        gl.linkProgram(program);
+        console.log(program);
+        gl.useProgram(program);
+        gl.program = program;
+    }
+    function initVertexBuffer(gl, vertices){
+        var buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    }
+    function setAttributeFromBuffer(gl, name, size, stride, offset) {
+        var attribute = gl.getAttribLocation(gl.program, name);
+        gl.vertexAttribPointer(attribute, size, gl.FLOAT, false, stride, offset);
+        gl.enableVertexAttribArray(attribute);
+    }
+    function setUniform(gl, name, f){
+        var u_FragColor = gl.getUniformLocation(gl.program, name);
+        gl.uniform1f(u_FragColor, f);
+    }
+    function clear(gl, r, g, b, a) {
+        gl.clearColor(r, g, b, a);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+
+    var canvas = document.getElementById('canvas');
+    var image2 = document.getElementById('image2');
+    var gl = canvas.getContext('webgl');
+    var VSHADER_SOURCE = `
+				attribute vec2 a_Position;
+				varying vec2 uv;
+
+				void main(){
+					gl_Position = vec4(a_Position,0.0,1.0);
+					uv = vec2(0.5, 0.5) * (a_Position + vec2(1.0, 1.0));
+				}
+			`;
+    var FSHADER_SOURCE  = `
+				precision lowp float;
+				varying vec2 uv;
+
+				uniform float progress, ratio;
+
+				uniform sampler2D u_Sampler0, u_Sampler1;
+				vec4 getFromColor(vec2 uv){
+					return texture2D(u_Sampler0, uv);
+				}
+				vec4 getToColor(vec2 uv){
+					return texture2D(u_Sampler1, uv);
+				}
+
+				vec4 transition(vec2 p) {
+				  float x = progress;
+				  x=smoothstep(.0,1.0,(x*2.0+p.x-1.0));
+				  return mix(getFromColor((p-.5)*(1.-x)+.5), getToColor((p-.5)*x+.5), x);
+				}
+				void main(){
+					gl_FragColor=texture2D(u_Sampler0, uv);
+				}
+			`;
+
+    var verticesTexCoords = new Float32Array([
+        -1,  1, 0, 1,
+        -1, -1, 0, 0,
+        1,  1, 1, 1,
+        1, -1, 1, 0
+    ]);
+    var copyVideo = false, t_Video, video0, video1;
+
+    function doDraw() {
+        draw(gl, 4);
+    }
+
+    function setupVideo(url) {
+        const video = document.getElementById('video');
+        video0 = video;
+        video1 = document.getElementById('video1');
+
+        var playing = false;
+        var timeupdate = false;
+
+        video.autoplay = true;
+        video.muted = true;
+        video.loop = true;
+
+        // Waiting for these 2 events ensures
+        // there is data in the video
+
+        video.addEventListener('playing', function() {
+            playing = true;
+            checkReady();
+        }, true);
+
+        video.addEventListener('timeupdate', function() {
+            timeupdate = true;
+            checkReady();
+        }, true);
+
+        video.src = url;
+        video.play();
+
+        function checkReady() {
+            if (playing && timeupdate) {
+                copyVideo = true;
+                t_Video = video;
+                draw(gl, 4);
+            }
+        }
+        return video;
+    }
+
+    var image0, texture0, u_Sampler0;
+    function initTexture(gl ,n){
+        texture0 = gl.createTexture();
+        u_Sampler0 = gl.getUniformLocation(gl.program, 'u_Sampler0');
+
+        image0 = new Image();
+        image0.onload = function(){
+            loadTexture();
+        };
+        image0.src = './assets/1.jpg';
+    }
+    function loadTexture(){
+        gl.activeTexture(gl.TEXTURE0);
+        
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,1);
+
+        //向target绑定纹理对象
+        gl.bindTexture(gl.TEXTURE_2D, texture0);
+        //配置纹理参数
+
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+
+        //配置纹理图像
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video1);
+        //将0号纹理传递给着色器
+        gl.uniform1i(u_Sampler0, 0);
+    }
+
+    //
+    // Initialize a texture.
+    //
+    var get_Tex0 = false,get_Tex1 = false;
+
+    function initVideoTexture(gl, url) {
+        const texture = gl.createTexture();
+        const u_Sampler1 = gl.getUniformLocation(gl.program, 'u_Sampler1');
+        gl.activeTexture(gl.TEXTURE1);
+
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        gl.uniform1i(u_Sampler1, 1);
+
+        // Because video has to be download over the internet
+        // they might take a moment until it's ready so
+        // put a single pixel in the texture so we can
+        // use it immediately.
+        const level = 0;
+        const internalFormat = gl.RGBA;
+        const width = 1;
+        const height = 1;
+        const border = 0;
+        const srcFormat = gl.RGBA;
+        const srcType = gl.UNSIGNED_BYTE;
+        const pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                width, height, border, srcFormat, srcType,
+                pixel);
+
+        // Turn off mips and set wrapping to clamp to edge so it
+        // will work regardless of the dimensions of the video.
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+        return texture;
+    }
+    //
+    // copy the video texture
+    //
+
+    var videoTexture;
+
+    function updateTexture(gl, texture, video) {
+        const level = 0;
+        const internalFormat = gl.RGB;
+        const srcFormat = gl.RGB;
+        const srcType = gl.UNSIGNED_BYTE;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                srcFormat, srcType, video);
+    }
+    let offset = 0;
+
+    function draw(gl, size) {
+        let timestamp = new Date().getTime(), progress;
+        timestamp = (timestamp/10)%100;
+        let t = t_Video.currentTime + offset;
+        clear(gl, 0.0, 0.0, 0.0, 1.0);
+//        if(t>6&&t<7) {
+//            progress = t - 6 - offset;
+//        } else {
+//            progress = 0;
+//        }
+
+//        if(t>6&&t<7) {
+//        }
+
+        setUniform(gl, 'progress', timestamp/100);
+        updateTexture(gl, videoTexture, t_Video);
+        // loadTexture();
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, size);
+//        if(copyVideo) {
+//        }
+        requestAnimationFrame(function(){
+            draw(gl, size);
+        })
+    }
+
+    initShader(gl, VSHADER_SOURCE, FSHADER_SOURCE);
+    // 往顶点数据缓存冲写入数据
+    initVertexBuffer(gl, verticesTexCoords);
+    // 使着色器代码中的a_Position变量，指向顶点数据缓冲区
+    var FSIZE = verticesTexCoords.BYTES_PER_ELEMENT;
+    setAttributeFromBuffer(gl, 'a_Position', 2, FSIZE*4, 0);
+
+    // 清除颜色缓冲区中数据
+
+    initTexture(gl, 4);
+    videoTexture = initVideoTexture(gl);
+    var video = setupVideo('../../assets/3.mp4');
+
+
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<style type="text/css">
+		.canvas {
+			width: 640px;
+			height: 640px;
+		}
+	</style>
+</head>
+<body>
+	<canvas class="canvas" id="canvas"></canvas>
+	<script type="text/javascript">
+	    var canvas = document.getElementById('canvas');
+		// 获取WebGL上下文
+		var gl = canvas.getContext('experimental-webgl');
+
+		// 编译着色器代码
+		var VSHADER_SOURCE = `
+		attribute vec4 a_Position;
+
+		void main() {
+		gl_Position = a_Position;
+		}
+		`;
+
+		var FSHADER_SOURCE = `
+		precision mediump float;
+
+		void main() {
+			gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		}
+		`;
+
+		var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+
+		gl.shaderSource(vertexShader, VSHADER_SOURCE);
+		gl.compileShader(vertexShader);
+
+		var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+		gl.shaderSource(fragmentShader, FSHADER_SOURCE);
+		gl.compileShader(fragmentShader);
+
+		var program = gl.createProgram();
+
+		gl.attachShader(program, vertexShader);
+		gl.attachShader(program, fragmentShader);
+
+		gl.linkProgram(program);
+		gl.useProgram(program);
+
+		// 往顶点数据缓存冲写入数据
+		var vertices = new Float32Array([
+		    -0.1,  0.1,  0.0,
+		    0.4,  0.1,  0.0,
+		    0.1, -0.3,  0.0,
+		]);
+
+		var buffer = gl.createBuffer();
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+		// 使着色器代码中的a_Position变量，指向顶点数据缓冲区
+		var a_Position = gl.getAttribLocation(program, 'a_Position');
+
+		gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(a_Position);
+
+		// 清除颜色缓冲区中数据
+		gl.clearColor(1.0, 1.0, 1.0, 1.0);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+
+		// 根据着色器代码,绘制图像
+		gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+
+	</script>
+</body>
+</html>

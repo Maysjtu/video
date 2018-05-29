@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "url-toolkit": "^2.1.4",
+    "video.js": "^6.8.0"
+  }
+}
