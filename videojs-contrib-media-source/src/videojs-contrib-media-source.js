@@ -62,7 +62,7 @@ const supportsNativeMediaSources = function() {
  	}
 
  	throw new Error('Cannot use flash or html5 to create a MediaSource for this video');
- }
+ };
 MediaSource.open = open ;
 MediaSource.supportsNativeMediaSources = supportsNativeMediaSources;
 
@@ -91,37 +91,10 @@ export const URL = {
    	videojs.mediaSources[url] = object;
    	return url;
    }
-}
+};
 
 videojs.MediaSource = MediaSource;
 videojs.URL = URL;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

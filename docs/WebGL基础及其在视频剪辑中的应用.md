@@ -1,4 +1,4 @@
-## WebGL基础及其在视频剪辑中的应用
+## WebGL基础及其在云犀快剪中的应用
 
 ### 一、WebGL的起源
 
@@ -84,7 +84,7 @@
 
 在画布上画三角形：
 
-Canvas 2D:
+Canvas 2D:   [demo](http://static.kanhunli.cn/yunxi/yunxi-videoedit/static/webgl/example.html)
 
 ```Javascript
 var canvas = document.getElementById('canvas');
@@ -99,7 +99,7 @@ ctx.fill();
 // ctx.stroke();
 ```
 
-WebGL：
+WebGL：[demo](http://static.kanhunli.cn/yunxi/yunxi-videoedit/static/webgl/example3D.html)
 
 ```javascript
 var canvas = document.getElementById('canvas');
@@ -237,6 +237,18 @@ WebGL只能绘制三种图形：点、线段和三角形。但是，正如本章
 
   
 
+Demo:
+
+- [插值](http://static.kanhunli.cn/yunxi/yunxi-videoedit/static/webgl/colortriangle.html)
+
+- [纹理映射/UV映射](http://static.kanhunli.cn/yunxi/yunxi-videoedit/static/webgl/multiTexture.html)
+
+- [翻页过渡效果](http://static.kanhunli.cn/yunxi/yunxi-videoedit/static/webgl/transition.html)
+
+- [叠化过渡效果]( http://static.kanhunli.cn/yunxi/yunxi-videoedit/static/webgl/test.html)
+
+  ​	           		   	
+
 叠化shader解析
 
 ```javascript
@@ -286,3 +298,4 @@ gl_FragColor=transition(uv);
 2. 《WebGL编程指南》
 3. 《交互式计算机图形学》第七版
 4. [GL-Transitions](https://gl-transitions.com/)
+
