@@ -8,7 +8,16 @@ Mp4 转 webm
 ffmpeg -i input_file.mp4 output_file.webm
 ```
 
-### 二、概述
+### 二、MSE支持格式
+
+| MIME type/subtype     | Public Specification(s)                                      | Generate Timestamps Flag |
+| --------------------- | ------------------------------------------------------------ | ------------------------ |
+| audio/webm video/webm | [WebM Byte Stream Format](https://www.w3.org/TR/mse-byte-stream-format-webm/) [[MSE-FORMAT-WEBM](https://www.w3.org/TR/mse-byte-stream-format-registry/#bib-MSE-FORMAT-WEBM)] | false                    |
+| audio/mp4 video/mp4   | [ISO BMFF Byte Stream Format](https://www.w3.org/TR/mse-byte-stream-format-isobmff/) [[MSE-FORMAT-ISOBMFF](https://www.w3.org/TR/mse-byte-stream-format-registry/#bib-MSE-FORMAT-ISOBMFF)] | false                    |
+| audio/mp2t video/mp2t | [MPEG-2 Transport Streams Byte Stream Format](https://www.w3.org/TR/mse-byte-stream-format-mp2t/) [[MSE-FORMAT-MP2T](https://www.w3.org/TR/mse-byte-stream-format-registry/#bib-MSE-FORMAT-MP2T)] | false                    |
+| audio/mpeg audio/aac  | [MPEG Audio Byte Stream Format](https://www.w3.org/TR/mse-byte-stream-format-mpeg-audio/) [[MSE-FORMAT-MPEG-AUDIO](https://www.w3.org/TR/mse-byte-stream-format-registry/#bib-MSE-FORMAT-MPEG-AUDIO)] | true                     |
+
+### 三、概述
 
 - H.264
 
@@ -36,9 +45,15 @@ ffmpeg -i input_file.mp4 output_file.webm
 
 
 
-### 三、规范
+### 三、Webm
 
-#### Webm封装格式
+#### 1. Introduction
+
+This specification describes a byte stream format based on the WebM container format [[WEBM](https://www.w3.org/TR/mse-byte-stream-format-webm/#bib-WEBM)]. It defines the MIME-type parameters used to signal codecs, and provides the necessary format specific definitions for [initialization segments](https://www.w3.org/TR/media-source/#init-segment), [media segments](https://www.w3.org/TR/media-source/#media-segment), and [random access points](https://www.w3.org/TR/media-source/#random-access-point) required by the [byte stream formats section](https://www.w3.org/TR/media-source/#byte-stream-formats) of the Media Source Extensions spec.
+
+#### 2. MIME-type parameters
+
+This section specifies the parameters that can be used in the MIME-type passed to `isTypeSupported()` or `addSourceBuffer()`.
 
 ![](http://p1yseh5av.bkt.clouddn.com/18-6-1/92640203.jpg)
 
@@ -49,6 +64,16 @@ ffmpeg -i input_file.mp4 output_file.webm
 - video/webm;codecs="vp8"
 - video/webm;codecs="vp8,vorbis"
 - video/webm;codecs="vp9,opus"
+
+### 四、 MP4
+
+MSE仅支持fmp4
+
+>If I'm not mistaken, MediaSource can be used to play fragmented MP4s, but not MP4 files generally. Fragmented MP4 files are structured differently and can be fetched in independent pieces. This is what DASH and HLS use when they refer to MP4 files. General MP4 files will have to be played directly with HTML5 video, which you can already do today without Shaka Player.
+
+
+
+
 
 
 
@@ -71,3 +96,4 @@ ffmpeg -i input_file.mp4 output_file.webm
 3. [HTML5的视频格式之争](http://www.ruanyifeng.com/blog/2010/05/html5_codec_fight.html)
 4. [VP9 vs H.265——下一代视频编码标准的王道之争](https://zhuanlan.zhihu.com/p/31817775)
 5. [Ogg Vorbis](https://baike.baidu.com/item/Ogg%20Vorbis)
+6. https://github.com/google/shaka-player/issues/1241
