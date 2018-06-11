@@ -1,35 +1,14 @@
-/**
- * @file transmuxer-worker.js
- */
-
-/**
- * videojs-contrib-media-sources
- *
- * Copyright (c) 2015 Brightcove
- * All rights reserved.
- *
- * Handles communication between the browser-world and the mux.js
- * transmuxer running inside of a WebWorker by exposing a simple
- * message-based interface to a Transmuxer object.
- */
 import window from 'global/window';
 import mp4 from 'mux.js/lib/mp4';
 
-/**
- * Re-emits transmuxer events by converting them into messages to the
- * world outside the worker.
- *
- * @param {Object} transmuxer the transmuxer to wire events on
- * @private
- */
 const wireTransmuxerEvents = function(transmuxer) {
-    transmuxer.on('data', function(segment) {
+    transmuxer.on('data', function(segment){
         // transfer ownership of the underlying ArrayBuffer
         // instead of doing a copy to save memory
         // ArrayBuffers are transferable but generic TypedArrays are not
         // @link https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers#Passing_data_by_transferring_ownership_(transferable_objects)
-        let initArray = segment.initSegment;
 
+        let initArray = segment.initSegment;
         segment.initSegment = {
             data: initArray.buffer,
             byteOffset: initArray.byteOffset,
@@ -37,33 +16,33 @@ const wireTransmuxerEvents = function(transmuxer) {
         };
 
         let typedArray = segment.data;
-
         segment.data = typedArray.buffer;
+
         window.postMessage({
             action: 'data',
             segment,
             byteOffset: typedArray.byteOffset,
             byteLength: typedArray.byteLength
         }, [segment.data]);
-    });
 
-    if (transmuxer.captionStream) {
-        transmuxer.captionStream.on('data', function(caption) {
-            window.postMessage({
-                action: 'caption',
-                data: caption
-            });
+        if(transmuxer.captionStream) {
+            transmuxer.captionStream.on('data', function(caption) {
+                window.postMessage({
+                    action: 'caption',
+                    data: caption
+                })
+            })
+        }
+
+        transmuxer.on('done', function(){
+            window.postMessage('done');
         });
-    }
 
-    transmuxer.on('done', function(data) {
-        window.postMessage({ action: 'done' });
-    });
-
-    transmuxer.on('gopInfo', function(gopInfo) {
-        window.postMessage({
-            action: 'gopInfo',
-            gopInfo
+        transmuxer.on('gopInfo', function(gopInfo) {
+            window.postMessage({
+                action: 'gopInfo',
+                gopInfo
+            })
         });
     });
 };
@@ -85,7 +64,7 @@ class MessageHandlers {
      * initialize our web worker and wire all the events.
      */
     init() {
-        if (this.transmuxer) {
+        if(this.transmuxer) {
             this.transmuxer.dispose();
         }
         this.transmuxer = new mp4.Transmuxer(this.options);
@@ -100,8 +79,7 @@ class MessageHandlers {
      */
     push(data) {
         // Cast array buffer to correct type for transmuxer
-        let segment = new Uint8Array(data.data, data.byteOffset, data.byteLength);
-
+        let segment = new Unit8Array(data.data, data.byteOffset, data.byteLength);
         this.transmuxer.push(segment);
     }
 
@@ -120,16 +98,14 @@ class MessageHandlers {
      *
      * @param {Object} data used to set the timestamp offset in the muxer
      */
-    setTimestampOffset(data) {
+    setTimeStampOffset(data) {
         let timestampOffset = data.timestampOffset || 0;
 
         this.transmuxer.setBaseMediaDecodeTime(Math.round(timestampOffset * 90000));
     }
-
     setAudioAppendStart(data) {
         this.transmuxer.setAudioAppendStart(Math.ceil(data.appendStart * 90000));
     }
-
     /**
      * Forces the pipeline to finish processing the last segment and emit it's
      * results.
@@ -139,11 +115,9 @@ class MessageHandlers {
     flush(data) {
         this.transmuxer.flush();
     }
-
     resetCaptions() {
         this.transmuxer.resetCaptions();
     }
-
     alignGopsWith(data) {
         this.transmuxer.alignGopsWith(data.gopsToAlignWith.slice());
     }
@@ -156,23 +130,22 @@ class MessageHandlers {
  *
  * @param {Object} self the scope for the web worker
  */
+
 const TransmuxerWorker = function(self) {
     self.onmessage = function(event) {
-        if (event.data.action === 'init' && event.data.options) {
+        if(event.data.action === 'init' && event.data.options) {
             this.messageHandlers = new MessageHandlers(event.data.options);
             return;
         }
-
-        if (!this.messageHandlers) {
+        if(!this.messageHandlers) {
             this.messageHandlers = new MessageHandlers();
         }
-
         if (event.data && event.data.action && event.data.action !== 'init') {
             if (this.messageHandlers[event.data.action]) {
                 this.messageHandlers[event.data.action](event.data);
             }
         }
-    };
+    }
 };
 
 export default (self) => {

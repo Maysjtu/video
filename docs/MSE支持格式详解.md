@@ -75,20 +75,6 @@ MSE仅支持fmp4
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### 参考
 
 1. [MSE byte stream format registry](https://www.w3.org/TR/mse-byte-stream-format-registry/)
@@ -97,3 +83,4 @@ MSE仅支持fmp4
 4. [VP9 vs H.265——下一代视频编码标准的王道之争](https://zhuanlan.zhihu.com/p/31817775)
 5. [Ogg Vorbis](https://baike.baidu.com/item/Ogg%20Vorbis)
 6. https://github.com/google/shaka-player/issues/1241
+7. [Media Source 系列 - 使用 Media Source Extensions 播放视频](http://www.jackpu.com/media-source-xi-lie/)

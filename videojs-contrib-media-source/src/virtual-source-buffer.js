@@ -43,6 +43,7 @@ const makeWrappedSourceBuffer = function(mediaSource, mimeType) {
 
     return wrapper;
 };
+
 /**
  * Returns a list of gops in the buffer that have a pts value of 3 seconds or more in
  * front of current time.
@@ -165,7 +166,7 @@ export const removeGopBuffer = (buffer, start, end, mapping) => {
  * It creates a transmuxer, that works in its own thread (a web worker) and
  * that transmuxer muxes the data into a native format. VirtualSourceBuffer will
  * then send all of that data to the naive sourcebuffer so that it is
- * indestinguishable from a natively supported format.
+ * indistinguishable from a natively supported format.
  *
  * @param {HtmlMediaSource} mediaSource the parent mediaSource
  * @param {Array} codecs array of codecs that we will be dealing with
