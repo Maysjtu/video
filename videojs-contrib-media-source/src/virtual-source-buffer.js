@@ -18,7 +18,6 @@ const resolveTransmuxWorker = () => {
 
     return result;
 };
-
 // We create a wrapper around the SourceBuffer so that we can manage the
 // state of the `updating` property manually. We have to do this because
 // Firefox changes `updating` to false long before triggering `updateend`
@@ -58,23 +57,22 @@ const makeWrappedSourceBuffer = function(mediaSource, mimeType) {
  *         List of gops considered safe to append over
  */
 export const gopsSafeToAlignWith = (buffer, player, mapping) => {
-    if (!player || !buffer.length) {
+    if(!player||!buffer.length) {
         return [];
     }
-
     // pts value for current time + 3 seconds to give a bit more wiggle room
     const currentTimePts = Math.ceil((player.currentTime() - mapping + 3) * 90000);
 
     let i;
 
     for (i = 0; i < buffer.length; i++) {
-        if (buffer[i].pts > currentTimePts) {
+        if(buffer[i].pts > currentTimePts) {
             break;
         }
     }
-
     return buffer.slice(i);
 };
+
 /**
  * Appends gop information (timing and byteLength) received by the transmuxer for the
  * gops appended in the last call to appendBuffer
@@ -90,11 +88,11 @@ export const gopsSafeToAlignWith = (buffer, player, mapping) => {
  *         Updated list of gop information
  */
 export const updateGopBuffer = (buffer, gops, replace) => {
-    if (!gops.length) {
+    if(!gops.length) {
         return buffer;
     }
 
-    if (replace) {
+    if (replace){
         // If we are in safe append mode, then completely overwrite the gop buffer
         // with the most recent appeneded data. This will make sure that when appending
         // future segments, we only try to align with gops that are both ahead of current
@@ -102,12 +100,11 @@ export const updateGopBuffer = (buffer, gops, replace) => {
         return gops.slice();
     }
 
-    const start = gops[0].pts;
+    const start = gops[0].start;
 
     let i = 0;
-
-    for (i; i < buffer.length; i++) {
-        if (buffer[i].pts >= start) {
+    for(i; i < buffer.length; i++) {
+        if(buffer[i].pts >= start) {
             break;
         }
     }
@@ -131,11 +128,9 @@ export const removeGopBuffer = (buffer, start, end, mapping) => {
     const startPts = Math.ceil((start - mapping) * 90000);
     const endPts = Math.ceil((end - mapping) * 90000);
     const updatedBuffer = buffer.slice();
-
     let i = buffer.length;
-
-    while (i--) {
-        if (buffer[i].pts <= endPts) {
+    while(i--) {
+        if(buffer[i].pts <= endPts) {
             break;
         }
     }
@@ -144,20 +139,16 @@ export const removeGopBuffer = (buffer, start, end, mapping) => {
         // no removal because end of remove range is before start of buffer
         return updatedBuffer;
     }
-
     let j = i + 1;
-
-    while (j--) {
-        if (buffer[j].pts <= startPts) {
+    while(j--) {
+        if(buffer[j].pts <= startPts) {
             break;
         }
     }
 
     // clamp remove range start to 0 index
     j = Math.max(j, 0);
-
     updatedBuffer.splice(j, i - j + 1);
-
     return updatedBuffer;
 };
 /**
@@ -184,7 +175,7 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
         this.codecs_ = codecs;
         this.audioCodec_ = null;
         this.videoCodec_ = null;
-        this.audioDisabled_ = false;
+        this.audioDisabled = false;
         this.appendAudioInitSegment_ = true;
         this.gopBuffer_ = [];
         this.timeMapping_ = 0;
@@ -202,10 +193,12 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                 this.videoCodec_ = codec;
             }
         });
+
         // append muxed segments to their respective native buffers as
         // soon as they are available
         this.transmuxer_ = work(transmuxWorker, resolveTransmuxWorker());
-        this.transmuxer_.postMessage({action: 'init', options });
+        this.transmuxer_.postMessage({action:'init', options});
+
         this.transmuxer_.onmessage = (event) => {
             if (event.data.action === 'data') {
                 return this.data_(event);
@@ -227,7 +220,7 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                 return this.timestampOffset_;
             },
             set(val) {
-                if (typeof val === 'number' && val >= 0) {
+                if(typeof val === 'number' && val >= 0){
                     this.timestampOffset_ = val;
                     this.appendAudioInitSegment_ = true;
 
@@ -264,8 +257,8 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
         Object.defineProperty(this, 'updating', {
             get() {
                 return !!(this.bufferUpdating_ ||
-                (!this.audioDisabled_ && this.audioBuffer_ && this.audioBuffer_.updating) ||
-                (this.videoBuffer_ && this.videoBuffer_.updating));
+                    (!this.audioDisabled_ && this.audioBuffer_.updating)||
+                    (this.videoBuffer_ && this.videoBuffer_.updating));
             }
         });
 
@@ -280,7 +273,7 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                 let ranges = [];
 
                 // neither buffer has been created yet
-                if (!this.videoBuffer_ && !this.audioBuffer_) {
+                if(!this.videoBuffer_ && !this.audioBuffer_) {
                     return videojs.createTimeRange();
                 }
 
@@ -288,6 +281,7 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                 if (!this.videoBuffer_) {
                     return this.audioBuffer_.buffered;
                 }
+
                 if (!this.audioBuffer_) {
                     return this.videoBuffer_.buffered;
                 }
@@ -305,20 +299,24 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
 
                 // Handle the case where we have both buffers and create an
                 // intersection of the two
+
                 let videoBuffered = this.videoBuffer_.buffered;
                 let audioBuffered = this.audioBuffer_.buffered;
                 let count = videoBuffered.length;
 
+                // mayde todo
                 // A) Gather up all start and end times
                 while (count--) {
                     extents.push({time: videoBuffered.start(count), type: 'start'});
                     extents.push({time: videoBuffered.end(count), type: 'end'});
                 }
+
                 count = audioBuffered.length;
                 while (count--) {
                     extents.push({time: audioBuffered.start(count), type: 'start'});
                     extents.push({time: audioBuffered.end(count), type: 'end'});
                 }
+
                 // B) Sort them by time
                 extents.sort(function(a, b) {
                     return a.time - b.time;
@@ -356,11 +354,11 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                 return videojs.createTimeRanges(ranges);
             }
         });
-
-
-
     }
     /**
+     *
+     * mayde todo
+     *
      * When we get a data event from the transmuxer
      * we call this function and handle the data that
      * was sent to us
@@ -371,7 +369,7 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
     data_(event) {
         let segment = event.data.segment;
 
-        // Cast ArrayBuffer to TypedArray
+        //Cast ArrayBuffer to TypedArray
         segment.data = new Uint8Array(
             segment.data,
             event.data.byteOffset,
@@ -430,12 +428,10 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
             if (!this[`${type}Codec_`]) {
                 return;
             }
-
             // Do nothing if a SourceBuffer of this type already exists
             if (this[`${type}Buffer_`]) {
                 return;
             }
-
             let buffer = null;
 
             // If the mediasource already has a SourceBuffer for the codec
@@ -464,19 +460,16 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
 
             this[`${type}Buffer_`] = buffer;
 
-            // Wire up the events to the SourceBuffer
             ['update', 'updatestart', 'updateend'].forEach((event) => {
                 buffer.addEventListener(event, () => {
                     // if audio is disabled
                     if (type === 'audio' && this.audioDisabled_) {
                         return;
                     }
-
                     if (event === 'updateend') {
                         this[`${type}Buffer_`].updating = false;
                     }
-
-                    let shouldTrigger = types.every((t) => {
+                    let shouldTrigger =  types.every((t) => {
                         // skip checking audio's updating status if audio
                         // is not enabled
                         if (t === 'audio' && this.audioDisabled_) {
@@ -490,13 +483,12 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                         }
                         return true;
                     });
-
                     if (shouldTrigger) {
                         return this.trigger(event);
                     }
-                });
-            });
-        });
+                })
+            })
+        })
     }
     /**
      * Emulate the native mediasource function, but our function will
@@ -519,7 +511,6 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                 appendStart: audioBuffered.end(audioBuffered.length - 1)
             });
         }
-
         if (this.videoBuffer_) {
             this.transmuxer_.postMessage({
                 action: 'alignGopsWith',
@@ -528,7 +519,6 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
                     this.timeMapping_)
             });
         }
-
         this.transmuxer_.postMessage({
                 action: 'push',
                 // Send the typed-array of data as an ArrayBuffer so that
@@ -553,209 +543,11 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
      * @param {Array} event.data.gopInfo
      *        List of gop info to append
      */
-    appendGopInfo_(event) {
-        this.gopBuffer_ = updateGopBuffer(this.gopBuffer_,
-            event.data.gopInfo,
-            this.safeAppend_);
-    }
+    
 
-    /**
-     * Emulate the native mediasource function and remove parts
-     * of the buffer from any of our internal buffers that exist
-     *
-     * @link https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer/remove
-     * @param {Double} start position to start the remove at
-     * @param {Double} end position to end the remove at
-     */
-    remove(start, end) {
-        if (this.videoBuffer_) {
-            this.videoBuffer_.updating = true;
-            this.videoBuffer_.remove(start, end);
-            this.gopBuffer_ = removeGopBuffer(this.gopBuffer_, start, end, this.timeMapping_);
-        }
-        if (!this.audioDisabled_ && this.audioBuffer_) {
-            this.audioBuffer_.updating = true;
-            this.audioBuffer_.remove(start, end);
-        }
 
-        // Remove Metadata Cues (id3)
-        removeCuesFromTrack(start, end, this.metadataTrack_);
 
-        // Remove Any Captions
-        if (this.inbandTextTracks_) {
-            for (let track in this.inbandTextTracks_) {
-                removeCuesFromTrack(start, end, this.inbandTextTracks_[track]);
-            }
-        }
-    }
-    /**
-     * Process any segments that the muxer has output
-     * Concatenate segments together based on type and append them into
-     * their respective sourceBuffers
-     *
-     * @private
-     */
-    processPendingSegments_() {
-        let sortedSegments = {
-            video: {
-                segments: [],
-                bytes: 0
-            },
-            audio: {
-                segments: [],
-                bytes: 0
-            },
-            captions: [],
-            metadata: []
-        };
 
-        // Sort segments into separate video/audio arrays and
-        // keep track of their total byte lengths
-        sortedSegments = this.pendingBuffers_.reduce(function(segmentObj, segment) {
-            let type = segment.type;
-            let data = segment.data;
-            let initSegment = segment.initSegment;
-
-            segmentObj[type].segments.push(data);
-            segmentObj[type].bytes += data.byteLength;
-
-            segmentObj[type].initSegment = initSegment;
-
-            // Gather any captions into a single array
-            if (segment.captions) {
-                segmentObj.captions = segmentObj.captions.concat(segment.captions);
-            }
-
-            if (segment.info) {
-                segmentObj[type].info = segment.info;
-            }
-
-            // Gather any metadata into a single array
-            if (segment.metadata) {
-                segmentObj.metadata = segmentObj.metadata.concat(segment.metadata);
-            }
-
-            return segmentObj;
-        }, sortedSegments);
-
-        // Create the real source buffers if they don't exist by now since we
-        // finally are sure what tracks are contained in the source
-        if (!this.videoBuffer_ && !this.audioBuffer_) {
-            // Remove any codecs that may have been specified by default but
-            // are no longer applicable now
-            if (sortedSegments.video.bytes === 0) {
-                this.videoCodec_ = null;
-            }
-            if (sortedSegments.audio.bytes === 0) {
-                this.audioCodec_ = null;
-            }
-
-            this.createRealSourceBuffers_();
-        }
-
-        if (sortedSegments.audio.info) {
-            this.mediaSource_.trigger({type: 'audioinfo', info: sortedSegments.audio.info});
-        }
-        if (sortedSegments.video.info) {
-            this.mediaSource_.trigger({type: 'videoinfo', info: sortedSegments.video.info});
-        }
-
-        if (this.appendAudioInitSegment_) {
-            if (!this.audioDisabled_ && this.audioBuffer_) {
-                sortedSegments.audio.segments.unshift(sortedSegments.audio.initSegment);
-                sortedSegments.audio.bytes += sortedSegments.audio.initSegment.byteLength;
-            }
-            this.appendAudioInitSegment_ = false;
-        }
-
-        let triggerUpdateend = false;
-
-        // Merge multiple video and audio segments into one and append
-        if (this.videoBuffer_ && sortedSegments.video.bytes) {
-            sortedSegments.video.segments.unshift(sortedSegments.video.initSegment);
-            sortedSegments.video.bytes += sortedSegments.video.initSegment.byteLength;
-            this.concatAndAppendSegments_(sortedSegments.video, this.videoBuffer_);
-            // TODO: are video tracks the only ones with text tracks?
-            addTextTrackData(this, sortedSegments.captions, sortedSegments.metadata);
-        } else if (this.videoBuffer_ && (this.audioDisabled_ || !this.audioBuffer_)) {
-            // The transmuxer did not return any bytes of video, meaning it was all trimmed
-            // for gop alignment. Since we have a video buffer and audio is disabled, updateend
-            // will never be triggered by this source buffer, which will cause contrib-hls
-            // to be stuck forever waiting for updateend. If audio is not disabled, updateend
-            // will be triggered by the audio buffer, which will be sent upwards since the video
-            // buffer will not be in an updating state.
-            triggerUpdateend = true;
-        }
-
-        if (!this.audioDisabled_ && this.audioBuffer_) {
-            this.concatAndAppendSegments_(sortedSegments.audio, this.audioBuffer_);
-        }
-
-        this.pendingBuffers_.length = 0;
-
-        if (triggerUpdateend) {
-            this.trigger('updateend');
-        }
-
-        // We are no longer in the internal "updating" state
-        this.bufferUpdating_ = false;
-    }
-
-    /**
-     * Combine all segments into a single Uint8Array and then append them
-     * to the destination buffer
-     *
-     * @param {Object} segmentObj
-     * @param {SourceBuffer} destinationBuffer native source buffer to append data to
-     * @private
-     */
-    concatAndAppendSegments_(segmentObj, destinationBuffer) {
-        let offset = 0;
-        let tempBuffer;
-
-        if (segmentObj.bytes) {
-            tempBuffer = new Uint8Array(segmentObj.bytes);
-
-            // Combine the individual segments into one large typed-array
-            segmentObj.segments.forEach(function(segment) {
-                tempBuffer.set(segment, offset);
-                offset += segment.byteLength;
-            });
-
-            try {
-                destinationBuffer.updating = true;
-                destinationBuffer.appendBuffer(tempBuffer);
-            } catch (error) {
-                if (this.mediaSource_.player_) {
-                    this.mediaSource_.player_.error({
-                        code: -3,
-                        type: 'APPEND_BUFFER_ERR',
-                        message: error.message,
-                        originalError: error
-                    });
-                }
-            }
-        }
-    }
-    /**
-     * Emulate the native mediasource function. abort any sourceBuffer
-     * actions and throw out any un-appended data.
-     *
-     * @link https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer/abort
-     */
-    abort() {
-        if (this.videoBuffer_) {
-            this.videoBuffer_.abort();
-        }
-        if (!this.audioDisabled_ && this.audioBuffer_) {
-            this.audioBuffer_.abort();
-        }
-        if (this.transmuxer_) {
-            this.transmuxer_.postMessage({action: 'reset'});
-        }
-        this.pendingBuffers_.length = 0;
-        this.bufferUpdating_ = false;
-    }
 }
 
 
