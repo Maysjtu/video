@@ -10,7 +10,7 @@ let urlCount = 0;
 
 const defaults = {
 	mode: 'auto'
-}
+};
 
 //store references to the media sources so they can be connected 
 //to a video element
@@ -25,7 +25,7 @@ const open = function(msObjectURL, swfId) {
 	} else {
 		throw new Error('Media Source not found(Video.js)');
 	}
-}
+};
 
 /**
 * check to see if the native MediaSource object exists and supports
@@ -34,7 +34,7 @@ const open = function(msObjectURL, swfId) {
 const supportsNativeMediaSources = function() {
 	return (!!window.MediaSource && !!window.MediaSource.isTypeSupported &&
 		window.MediaSource.isTypeSupported('video/mp4;codecs="avc1.4d400d,mp4a.40.2"'))
-}
+};
 /**
  * An emulation of the MediaSource API so that we can support
  * native and non-native functionality such as flash and
@@ -67,7 +67,7 @@ MediaSource.open = open ;
 MediaSource.supportsNativeMediaSources = supportsNativeMediaSources;
 
 export const URL = {
-	 /**
+ /**
    * A wrapper around the native createObjectURL for our objects.
    * This function maps a native or emulated mediaSource to a blob
    * url so that it can be loaded into video.js
