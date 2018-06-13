@@ -457,6 +457,3 @@ export default {
     estimateSegmentRequestTime,
     isLowestEnabledRendition
 };
-
-
-

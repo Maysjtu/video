@@ -73,6 +73,12 @@ MSE仅支持fmp4
 
 
 
+### 五、 TS
+
+https://stackoverflow.com/questions/18859840/mpeg-dash-mpeg2-ts-support-in-chromecast-and-other-browsers
+
+> The ChromeCast website ([developers.google.com/cast/supported_media_types](https://developers.google.com/cast/supported_media_types)) clearly indicates that MPEG2-TS is not supported. Also, support in Chrome is listed here ([sites.google.com/a/chromium.org/dev/audio-video](https://sites.google.com/a/chromium.org/dev/audio-video)). I do not believe that any major browsers intend on supporting MPEG2-TS and MSE. Chrome and IE 11 are the only browsers, I believe, to currently offer MSE support and neither supports MPEG2-TS. I imagine if Apple puts MSE support into Safari it would support MPEG2-TS, but I don't think that's coming any time soon. – [Nathan](https://stackoverflow.com/users/2099593/nathan) [Sep 18 '13 at 15:19](https://stackoverflow.com/questions/18859840/mpeg-dash-mpeg2-ts-support-in-chromecast-and-other-browsers#comment27857238_18859840)
+
 
 
 ### 参考
