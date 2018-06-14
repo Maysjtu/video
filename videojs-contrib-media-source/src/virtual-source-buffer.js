@@ -156,7 +156,7 @@ export const removeGopBuffer = (buffer, start, end, mapping) => {
  * It creates a transmuxer, that works in its own thread (a web worker) and
  * that transmuxer muxes the data into a native format. VirtualSourceBuffer will
  * then send all of that data to the naive sourcebuffer so that it is
- * indestinguishable from a natively supported format.
+ * indistinguishable from a natively supported format.
  *
  * @param {HtmlMediaSource} mediaSource the parent mediaSource
  * @param {Array} codecs array of codecs that we will be dealing with
@@ -542,11 +542,193 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
      * @param {Array} event.data.gopInfo
      *        List of gop info to append
      */
+    appendGopInfo_(event) {
+        this.gopBuffer_ = updateGopBuffer(this.gopBuffer_,
+            event.data.gopInfo,
+            this.safeAppend_);
+    }
+    /**
+     * Emulate the native mediasource function and remove parts
+     * of the buffer from any of our internal buffers that exist
+     *
+     * @link https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer/remove
+     * @param {Double} start position to start the remove at
+     * @param {Double} end position to end the remove at
+     */
+    remove(start, end) {
+        if (this.videoBuffer_) {
+            this.videoBuffer_.updating = true;
+            this.videoBuffer_.remove(start, end);
+            this.gopBuffer_ = removeGopBuffer(this.gopBuffer_, start, end, this.timeMapping_);
+        }
+        if (!this.audioDisabled_ && this.audioBuffer_) {
+            this.audioBuffer_.updating = true;
+            this.audioBuffer_.remove(start, end);
+        }
 
+        // Remove Metadata Cues (id3)
+        removeCuesFromTrack(start, end, this.metadataTrack_);
 
+        // Remove Any Captions
+        if (this.inbandTextTracks_) {
+            for (let track in this.inbandTextTracks_) {
+                removeCuesFromTrack(start, end, this.inbandTextTracks_[track]);
+            }
+        }
+    }
 
+    /**
+     * Process any segments that the muxer has output
+     * Concatenate segments together based on type and append them into
+     * their respective sourceBuffers
+     *
+     * @private
+     */
+    processPendingSegments_() {
+        let sortedSegments = {
+            video: {
+                segments: [],
+                bytes: 0
+            },
+            audio: {
+                segments: [],
+                bytes: 0
+            },
+            captions: [],
+            metadata: []
+        };
+        // Sort segments into separate video/audio arrays and
+        // keep track of their total byte lengths
+        sortedSegments = this.pendingBuffers_.reduce(function(segmentObj, segment){
+            let type = segment.type;
+            let data = segment.data;
+            let initSegment = segment.initSegment;
+            segmentObj[type].segments.push(data);
+            segmentObj[type].bytes += data.byteLength;
+            segmentObj[type].initSegment = initSegment;
 
+            if (segment.captions) {
+                segmentObj.captions = segmentObj.captions.concat(segment.captions);
+            }
+            if (segment.info) {
+                segmentObj[type].info = segment.info;
+            }
 
+            // Gather any metadata into a single array
+            if (segment.metadata) {
+                segmentObj.metadata = segmentObj.metadata.concat(segment.metadata);
+            }
+            return segmentObj;
+
+        }, sortedSegments);
+        // Create the real source buffers if they don't exist by now since we
+        // finally are sure what tracks are contained in the source
+        if (!this.videoBuffer_ && !this.audioBuffer_) {
+            // Remove any codecs that may have been specified by default but
+            // are no longer applicable now
+            if (sortedSegments.video.bytes === 0) {
+                this.videoCodec_ = null;
+            }
+            if (sortedSegments.audio.bytes === 0) {
+                this.audioCodec_ = null;
+            }
+
+            this.createRealSourceBuffers_();
+        }
+        if (sortedSegments.audio.info) {
+            this.mediaSource_.trigger({type: 'audioinfo', info: sortedSegments.audio.info});
+        }
+        if (sortedSegments.video.info) {
+            this.mediaSource_.trigger({type: 'videoinfo', info: sortedSegments.video.info});
+        }
+
+        if (this.appendAudioInitSegment_) {
+            if (!this.audioDisabled_ && this.audioBuffer_) {
+                sortedSegments.audio.segments.unshift(sortedSegments.audio.initSegment);
+                sortedSegments.audio.bytes += sortedSegments.audio.initSegment.byteLength;
+            }
+            this.appendAudioInitSegment_ = false;
+        }
+        let triggerUpdateend = false;
+        // Merge multiple video and audio segments into one and append
+        if (this.videoBuffer_ && sortedSegments.video.bytes) {
+            sortedSegments.video.segments.unshift(sortedSegments.video.initSegment);
+            sortedSegments.video.bytes += sortedSegments.video.initSegment.byteLength;
+            this.concatAndAppendSegments_(sortedSegments.video, this.videoBuffer_);
+            // TODO: are video tracks the only ones with text tracks?
+            addTextTrackData(this, sortedSegments.captions, sortedSegments.metadata);
+        } else if (this.videoBuffer_ && (this.audioDisabled_ || !this.audioBuffer_)) {
+            // The transmuxer did not return any bytes of video, meaning it was all trimmed
+            // for gop alignment. Since we have a video buffer and audio is disabled, updateend
+            // will never be triggered by this source buffer, which will cause contrib-hls
+            // to be stuck forever waiting for updateend. If audio is not disabled, updateend
+            // will be triggered by the audio buffer, which will be sent upwards since the video
+            // buffer will not be in an updating state.
+            triggerUpdateend = true;
+        }
+        if (!this.audioDisabled_ && this.audioBuffer_) {
+            this.concatAndAppendSegments_(sortedSegments.audio, this.audioBuffer_);
+        }
+        this.pendingBuffers_.length = 0;
+
+        if (triggerUpdateend) {
+            this.trigger('updateend');
+        }
+
+        // We are no longer in the internal "updating" state
+        this.bufferUpdating_ = false;
+    }
+    /**
+     * Combine all segments into a single Uint8Array and then append them
+     * to the destination buffer
+     *
+     * @param {Object} segmentObj
+     * @param {SourceBuffer} destinationBuffer native source buffer to append data to
+     * @private
+     */
+    concatAndAppendSegments_(segmentObj, destinationBuffer) {
+        let offset = 0;
+        let tempBuffer;
+        if (segmentObj.bytes) {
+            tempBuffer = new Uint8Array(segmentObj.bytes);
+            // Combine the individual segments into one large typed-array
+            segmentObj.segments.forEach(function(segment) {
+                tempBuffer.set(segment, offset);
+                offset += segment.byteLength;
+            });
+            try {
+                destinationBuffer.updating = true;
+                destinationBuffer.appendBuffer(tempBuffer);
+            } catch (error) {
+                if (this.mediaSource_.player_) {
+                    this.mediaSource_.player_.error({
+                        code: -3,
+                        type: 'APPEND_BUFFER_ERR',
+                        message: error.message,
+                        originalError: error
+                    });
+                }
+            }
+        }
+    }
+    /**
+     *
+     * Emulate the native mediasource function. abort any sourceBuffer
+     * actions and throw out any un-appended data.
+     *
+     * @link https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer/abort
+     */
+    abort() {
+        if (this.videoBuffer_) {
+            this.videoBuffer_.abort();
+        }
+        if (!this.audioDisabled_ && this.audioBuffer_) {
+            this.audioBuffer_.abort();
+        }
+        if (this.transmuxer_) {
+            this.transmuxer_.postMessage({action: 'reset'});
+        }
+        this.pendingBuffers_.length = 0;
+        this.bufferUpdating_ = false;
+    }
 }
-
-
