@@ -542,7 +542,7 @@ export default class VirtualSourceBuffer extends videojs.EventTarget {
      * @param {Array} event.data.gopInfo
      *        List of gop info to append
      */
-    
+
 
 
 
