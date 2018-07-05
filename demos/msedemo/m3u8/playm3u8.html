@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Document</title>
+    </head>
+    <body>
+    	<video id="myPlayer" width="640" height="360" controls></video>
+    	<button id="button">Get M3U8</button>
+    </body>
+    <script type="text/javascript" src="./node_modules/mux.js/dist/mux.js"></script>
+    <script type="text/javascript" src="./node_modules/m3u8-parser/dist/m3u8-parser.js"></script>
+    <script type="text/javascript">
+    	var button = document.getElementById('button');
+    	var video = document.getElementById('myPlayer');
+
+    	var mediaSource;
+    	var index = -1;
+    	var offset = 0;
+    	var transmuxer = new muxjs.mp4.Transmuxer();
+    	var remuxedSegs = [];
+    	var remuxedByteLength = 0;
+    	var remuxedInitSegment = null;
+    	var createInitSegment = true;
+    	var sourceBuffer;
+
+    	button.addEventListener('click', function(){
+    		fetchM3U8();
+    	});
+    	function playM3U8() {
+
+    	}
+    	function fetchM3U8() {
+    		var parser = new m3u8Parser.Parser();
+
+    		var m3u8Url = '../../../assets/cg.m3u8';
+    		fetch(m3u8Url, {})
+    		.then(function(response){
+    			return response.text();
+    		}).then(function(data){
+    			console.log('m3u8file', data);
+    			parser.push(data);
+    			parser.end();
+    			playManifest = parser.manifest;
+    			console.log('manifest', playManifest);
+    			playSegment();
+    		});
+
+    	}
+    	function playSegment() {
+    		if(!window.MediaSource) {
+    			alert('MediaSource not supported');
+    		}
+    		mediaSource = new MediaSource();
+    		video.src = URL.createObjectURL(mediaSource);
+    		mediaSource.addEventListener('sourceopen', sourceOpen, { once: true });
+    		transmuxer.on('data',function(segment){
+    			remuxedSegs.push(segment);
+    			remuxedByteLength = segment.data.byteLength;
+    			if(!remuxedInitSegment) {
+    				remuxedInitSegment = segment.initSegment;
+    			}
+    			appendBuffer();
+    		})
+    	}
+    	function sourceOpen(e) {
+    		URL.revokeObjectURL(video.src);
+    		var mime = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+    		// mediaSource = e.target;
+    		sourceBuffer = mediaSource.addSourceBuffer(mime);
+    		sourceBuffer.addEventListener('updateend',updateEnd);
+    		// sourceBuffer.appendWindowEnd = 20;
+    		fetchSegment();
+    	}
+    	function appendBuffer() {
+    		var bytes = null;
+    		if(createInitSegment) {
+    			bytes = new Uint8Array(remuxedInitSegment.byteLength + remuxedByteLength);
+    			bytes.set(remuxedInitSegment, offset);
+    			offset += remuxedInitSegment.byteLength;
+    			createInitSegment = false;
+    		} else {
+    			bytes = new Uint8Array(remuxedByteLength);
+    		}
+    		console.log('appendBuffer', index);
+    		var i = offset;
+    		bytes.set(remuxedSegs[index].data, i);
+    		offset += remuxedSegs[index].byteLength;
+    		remuxedByteLength = 0;
+    		sourceBuffer.appendBuffer(bytes);
+    	}
+    	function updateEnd() {
+    		console.log('updateend');
+    		if (!sourceBuffer.updating && mediaSource.readyState === 'open'
+			    && index == playManifest.segments.length - 1) {
+			      mediaSource.endOfStream();
+			      video.play();
+			      return;
+			    }
+			  fetchSegment();  
+    	}
+
+    	function fetchSegment() {
+    		index++;
+    		var videoUrl = '../../../assets/' + playManifest.segments[index]['uri'];
+    		console.log('fetch', videoUrl);
+    		fetch(videoUrl, {})
+    		.then(function(response){
+    			return response.arrayBuffer();
+    		}).then(function(arrayBuffer){
+    			transmuxer.push(new Uint8Array(arrayBuffer));
+    			transmuxer.flush();
+    		})
+    	}
+
+    </script>
+</html>

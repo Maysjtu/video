@@ -430,4 +430,3 @@ PSI提供了使接收机能够自动配置的信息，用于对复用流中的�
 4. [多路复用](https://zh.wikipedia.org/wiki/%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8)
 5. [TS文件格式详解](http://blog.chinaunix.net/uid-24922718-id-3686257.html)
 6. [M3U8文档](https://tools.ietf.org/html/draft-pantos-http-live-streaming-23#section-4.3.2.2)
-

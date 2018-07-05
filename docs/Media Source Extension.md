@@ -27,6 +27,16 @@ SourceBuffer对象被用于解码和播放的音频，视频和文本数据的�
 - Provide requirements for byte stream format specifications.
 - Not require support for any particular media format or codec（编解码器）.
 
+
+
+一般video标签的资源获取是走http，将mediaSource与video标签绑定后，资源获取算法会走本地。
+
+mediaSource的duration
+
+The [duration change algorithm](https://www.w3.org/TR/media-source/#duration-change-algorithm) will adjust new duration higher if there is any currently buffered coded frame with a higher end time.
+
+
+
 #### 1.2 定义
 
 **Active Track Buffers**
@@ -72,6 +82,8 @@ A sequence of bytes that contain all of the initialization information required 
 **Media Segment**
 
 A sequence of bytes that contain packetized & timestamped media data for a portion of the [media timeline](https://www.w3.org/TR/html51/semantics-embedded-content.html#media-timeline). Media segments are always associated with the most recently appended [initialization segment](https://www.w3.org/TR/media-source/#init-segment).
+
+一系列字节，包含媒体时间轴的一部分的打包和带时间戳的媒体数据。 媒体段始终与最近附加的初始化片段相关联。
 
 **MediaSource object URL**
 

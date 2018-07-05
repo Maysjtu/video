@@ -1,4 +1,4 @@
-# How Browsers Works
+# How Browsers Work
 
 ### 来源
 

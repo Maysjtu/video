@@ -10,12 +10,20 @@ if (window.MediaSource) {
 
 function sourceOpen(e) {
   URL.revokeObjectURL(vidElement.src);
-  var mime = 'video/webm; codecs="vp9, opus"';
+  mime = 'video/webm; codecs="vorbis, vp9"';
+
   	console.log(MediaSource.isTypeSupported(mime));
-  var mediaSource = e.target;
-  var sourceBuffer = mediaSource.addSourceBuffer(mime);
-  var videoUrl = '../../assets/cg.webm';
+   mediaSource = e.target;
+   // mediaSource.duration = 6;
+   sourceBuffer = mediaSource.addSourceBuffer(mime);
+   // sourceBuffer.mode = 'sequence';
+   sourceBuffer.appendWindowStart = 0;
+
+   sourceBuffer.appendWindowEnd = 10;
+   videoUrl = '../../assets/cg.webm';
+   videoUrl1 = '../../assets/avegers3.webm';
   console.log('lalala');
+
   fetch(videoUrl)
     .then(function(response) {
             console.log('res', response);
@@ -29,11 +37,38 @@ function sourceOpen(e) {
       	console.log('end');
       	console.log('end1',sourceBuffer);
 				console.log('end2',mediaSource);
-
+        // doNext();
+        // sourceBuffer.timestampOffset = 10;
         if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
           mediaSource.endOfStream();
         }
       });
       sourceBuffer.appendBuffer(arrayBuffer);
     });
+}
+function doNext() {
+  mime1 = 'video/webm; codecs="vorbis, vp8"'; 
+  // sourceBuffer1 = mediaSource.addSourceBuffer(mime);
+  // sourceBuffer1.appendWindowEnd = 10;
+
+  fetch(videoUrl)
+  .then(function(response) {
+    // console.log('res', response);
+    return response.arrayBuffer();
+  })
+  .then(function(arrayBuffer) {
+    console.log('buffer', arrayBuffer);
+
+      sourceBuffer.addEventListener('updateend', function(e) {
+        console.log('end');
+        // console.log('end1',sourceBuffer1);
+        console.log('end2',mediaSource);
+
+        // sourceBuffer.timestampOffset = 10;
+         if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
+           mediaSource.endOfStream();
+         }
+      });
+      sourceBuffer.appendBuffer(arrayBuffer);
+  });
 }

@@ -14,7 +14,7 @@ function sourceOpen(e) {
   	console.log(MediaSource.isTypeSupported(mime));
   var mediaSource = e.target;
   var sourceBuffer = mediaSource.addSourceBuffer(mime);
-  var videoUrl = '../../assets/avegers3.webm';
+  var videoUrl = '../../assets/videoplayback.webm';
   console.log('lalala');
   fetch(videoUrl)
     .then(function(response) {
