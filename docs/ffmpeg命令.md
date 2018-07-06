@@ -23,3 +23,9 @@ output.mp4
 
 [how-to-output-fragmented-mp4-with-ffmpeg](https://stackoverflow.com/questions/8616855/how-to-output-fragmented-mp4-with-ffmpeg)
 
+用在mse中失败了。
+
+使用Bento 的 mp4fragment 成功
+
+mp4fragment filein.mp4 fileout.mp4
+
