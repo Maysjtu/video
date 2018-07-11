@@ -6,6 +6,7 @@
     </head>
     <body>
     	<video id="myPlayer" width="640" height="360" controls></video>
+    	<br>
     	<button id="button">Get M3U8</button>
     </body>
     <script type="text/javascript" src="./node_modules/mux.js/dist/mux.js"></script>
@@ -30,8 +31,8 @@
    
     	function fetchM3U8() {
     		var parser = new m3u8Parser.Parser();
-
     		var m3u8Url = '../../../assets/cg.m3u8';
+
     		fetch(m3u8Url, {})
     		.then(function(response){
     			return response.text();
@@ -67,48 +68,71 @@
     		var mime = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
     		// mediaSource = e.target;
     		sourceBuffer = mediaSource.addSourceBuffer(mime);
-    		sourceBuffer.addEventListener('updateend',updateEnd);
-    		console.log('sourceBuffer', sourceBuffer);
-    		
     		// sourceBuffer.mode = 'sequence';
+    		console.log('sourceBuffer', sourceBuffer);
 
+    		sourceBuffer.addEventListener('updateend',updateEnd);
     		// sourceBuffer.appendWindowEnd = 15;
 
     		fetchSegment();
     	}
     	function appendBuffer() {
-    		var bytes = null, offset = 0;
-    		//可以每次播放一个ts都重置编解码参数
+    		var bytes = null;
     		if(createInitSegment) {
-    			bytes = new Uint8Array(remuxedInitSegment.byteLength + remuxedByteLength);
-    			bytes.set(remuxedInitSegment, offset);
-    			offset += remuxedInitSegment.byteLength;
-    			//createInitSegment = false;
-    			var i = offset;
-	    		console.log('offset', offset);
-	    		bytes.set(remuxedSegs[index].data, i);
-	    		offset += remuxedSegs[index].byteLength;
-	    		console.log('offset1', offset);
-	    		remuxedByteLength = 0;
-	    		sourceBuffer.appendBuffer(bytes);
+    			bytes = new Uint8Array(remuxedInitSegment.byteLength);
+    			sourceBuffer.appendBuffer(remuxedInitSegment);
+    			createInitSegment = false;
     		} else {
+    			// bytes = new Uint8Array(remuxedByteLength);
     			sourceBuffer.appendBuffer(remuxedSegs[index].data);
-    		}
+    			createInitSegment = true;
 
+    		}
+    		console.log('appendBuffer', index);
+    		// var i = offset;
+    		// console.log('offset', offset);
+    		// bytes.set(remuxedSegs[index].data, i);
+    		// offset += remuxedSegs[index].byteLength;
+    		// remuxedByteLength = 0;
     	}
+
+    	let repeatTime = 0;
     	function updateEnd() {
     		console.log('updateend');
-    		if (!sourceBuffer.updating && mediaSource.readyState === 'open'
-			    && index == playManifest.segments.length - 1) {
-			      mediaSource.endOfStream();
-			      video.play();
-			      return;
-			    }
-			  fetchSegment();  
+    		if(repeatTime<3) {
+    			repeatTime++;
+
+	    		console.log('createInitSegment', createInitSegment);
+	    		console.log('timestampOffset', mediaSource.sourceBuffers[0].timestampOffset);
+	    		// mediaSource.sourceBuffers[0].appendWindowEnd = 4;
+
+	    		if(createInitSegment) {
+	    			mediaSource.sourceBuffers[0].timestampOffset = 6;
+	    		}
+	    		appendBuffer();
+
+	    		// console.log('duration', temp);
+    		} else {
+    			mediaSource.endOfStream();
+    		}
+
+    		// if(!sourceBuffer.updating && mediaSource.readyState === 'open') {
+    		// 	mediaSource.endOfStream();
+    		// }
+    		// if (!sourceBuffer.updating && mediaSource.readyState === 'open'
+			   //  && index == playManifest.segments.length - 1) {
+			   //    mediaSource.endOfStream();
+			   //    video.play();
+			   //    return;
+			   //  }
+			  // fetchSegment();  
     	}
 
     	function fetchSegment() {
     		index++;
+    		if(index>0) {
+	    		// sourceBuffer.appendWindowStart = 5;
+    		}
     		var videoUrl = '../../../assets/' + playManifest.segments[index]['uri'];
     		console.log('fetch', videoUrl);
     		fetch(videoUrl, {})

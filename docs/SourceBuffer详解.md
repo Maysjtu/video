@@ -70,13 +70,25 @@ if (bufferMode == 'segments') {
 
 sourceBuffer.appendWindowStart不能更改？改了会导致无法解析？因为没有拿到initialSegment吗？
 
+> NOTE
+>
+> Some implementations *may* choose to collect some of these coded frames with presentation timestamp less than `appendWindowStart` and use them to generate a splice at the first coded frame that has a [presentation timestamp](https://www.w3.org/TR/media-source/#presentation-timestamp) greater than or equal to `appendWindowStart`even if that frame is not a [random access point](https://www.w3.org/TR/media-source/#random-access-point). Supporting this requires multiple decoders or faster than real-time decoding so for now this behavior will not be a normative requirement.
+
+是因为appendWindowStart定义的时间点不是关键帧的点，导致视频无法解析。
+
+
+
 sourceBuffer.appendWindowEnd可以改。
 
+结束时间与视频解码无关。
 
 
 
+sourceBuffer.timestampOffset
 
+可以用于两个视频无缝播放
 
+[How do i append two video files data to a source buffer using media source api?](https://stackoverflow.com/questions/14108536/how-do-i-append-two-video-files-data-to-a-source-buffer-using-media-source-api)
 
 
 
