@@ -44,9 +44,7 @@ Note: The MSE spec is still in a draft form. Its currently supported by default 
 
   视频卡住后，不会及时通知或者没有通知。
 
-  看demo视频
-
-- **No adaptive streaming. Slow network? Too bad.**
+  **No adaptive streaming. Slow network? Too bad.**
 
   With HTML5 video there's no way to switch the video rendition on the fly without interrupting the experience. If your network starts running slow you either have to replace the video with a new one or simply wait for it to buffer. With Flash it's been possible to use adaptive streaming to change the video quality on the fly for years.
 
