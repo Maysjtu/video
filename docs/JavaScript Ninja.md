@@ -1491,3 +1491,397 @@ timers.start();
 ### 8.5 异步测试
 
 ······
+
+
+
+## 第13章 不老事件
+
+本章内容：
+
+- 为什么事件会有问题
+- 事件绑定和解绑技术
+- 事件触发
+- 自定义事件的使用
+- 事件冒泡和事件委托
+
+DOM事件并不简单
+
+尽管所有的浏览器都提供了相对稳定的事件管理API，但它们的方法和实现都不相同。浏览器提供的功能对于完成大部分需要复杂应用程序才能处理的任务来说是不够的，其难度甚至超出浏览器差异带来的挑战。
+
+JS库最终需要重新实现现有的浏览器事件处理API。本书有助于了解我们所使用的库对这类事件处理程序是如何处理的，也有助于我们了解这些类库在刚开始创建时的秘密。
+
+```js
+<body onload="doSomething()">    
+window.onload = doSomething;
+```
+
+这两种方法都使用了 DOM Level 0 Event Model
+
+但DOM Level 0 事件有严重的局限性，使得其不适合用于构建可重用代码或者复杂的页面。
+
+DOM Level 2 事件模型提供了一个更强大的API，但是它的使用也是有问题的，因为它在IE 9之前版本的浏览器上不可用。它缺少一些我们真正需要的功能。
+
+本章将帮助我们查看事件处理的雷区，并解释如何克服浏览器带给我们的糟糕环境。
+
+### 13.1 绑定和解绑事件处理程序
+
+DOM 2 Model：addEventListener和removeEventListener
+
+IE Model：attachEvent和detachEvent
+
+IE Model没有提供事件捕获阶段的监听方式。IE Model只支持事件处理过程中的冒泡阶段。
+
+IE Model设置了错误的上下文，并且没有将事件信息传递给处理程序。
+
+> 冒泡阶段：事件将事件源传播到DOM根节点
+>
+> 捕获阶段：从DOM根节点遍历传播到事件源上
+>
+> 任何W3C事件模型中发生的事件都是先捕获，直到它到达目标元素，然后再向外冒泡。
+
+```js
+addEvent(window, 'load', function(){
+    var elems = document.getElementsByTagName('div');
+    for(var i = 0; i < elems.length; i++) {
+        (function(elem){
+            var handler = addEvent(elem, 'click', function(){
+                this.style.backgroundColor = this.style.backgroundColor==''?'green':'';
+           		removeEvent(elem, 'click', handler)
+            })
+        })(elems(i));
+    }
+})
+```
+
+不能依赖callee，IE下不正确
+
+### 13.2 Event对象
+
+在DOM Model中，Event对象实例是作为第一个参数传入到事件处理程序中；
+
+IE Model中，是通过全局上下文的属性来获取到的。
+
+创建一个新的对象来模拟浏览器的原始事件对象，将原始事件的属性进行规范化以匹配DOM Model。为什么不直接修改现有对象？因为原生事件对象中有很多属性不能被覆盖。
+
+**规范化Event对象实例**
+
+```js
+function fixEvent(event) {
+    function returnTrue { return true; }
+    function returnFalse { return false; }
+    //测试是否需要修复
+    if(!event||!event.stopPropagation){
+        var old = event||window.event;
+        //clone the old object so that we can modify the values
+        event = {};
+        for(var prop in old) {
+            event[prop] = old[prop];
+        } 
+        //The event occurred on this element
+        if(!event.target) {
+            event.target = event.srcElement||document;
+        }
+        event.relatedTarget = event.fromElement === event.target?event.toElement:event.fromElement;
+        //stop the default browser action 阻止默认事件
+        event.preventDefault = function() {
+            event.returnValue = false;
+            event.isDefaultPrevented = returnTrue;
+        }
+        event.isDefaultPrevent = returnFalse();
+        event.stopPropagation = function() {
+            event.cancelBubble = true;
+            event.isPropagationStopped = returnTrue;
+        }
+        event.isPropagationStopped = returnFalse;
+        event.stopImmediatePropagation = function() {
+            this.isImmediatePropagationStopped = returnTrue;
+            this.stopPropagation();
+        }
+        event.isImmediatePropagationStopped = returnFalse;
+        
+        //Handle mouse position
+        if(event.clientX != null) {
+            var doc = document.documentElement, body = document.body;
+            event.pageX = event.clientX +
+             (doc&&doc.scrollLeft||body&&body.scrollLeft||0) - 
+             (doc&&doc.clientLeft||body&&body.clientLeft||0);
+            event.pageY = event.clientY +
+             (doc&&doc.scrollLeft||body&&body.scrollLeft||0) - 
+             (doc&&doc.clientLeft||body&&body.clientLeft||0);
+        }
+        event.which = event.charCode || event.keyCode;
+        //Fix button for mouse clicks:
+        //0 == left; 1 == middle; 2 == right
+        if(event.button != null) {
+            event.button = ...
+        }
+    }
+    return event;//修复后的实例
+}
+```
+
+> **pageX/pageY:** 鼠标相对于整个页面的X/Y坐标。  特别说明：IE不支持！ **clientX/clientY：** 事件发生时鼠标在浏览器内容区域的X/Y坐标（不包含滚动条）。
+
+好了，现在我们有一种规范化的Event实例了。
+
+### 13.3 处理程序的管理
+
+由于诸多原因，不将事件处理程序直接绑定在元素上是有利的。如果我们使用一个中间事件处理程序，并将所有的处理程序都保存在一个单独的对象上，我们可以最大化的控制处理过程。
+
+还能做到以下几点：
+
+- 规范化处理程序的上下文
+- 修复Event对象的属性
+- 处理垃圾回收
+- 过滤触发或删除一些处理程序
+- 解绑特定类型的所有事件
+- 克隆事件处理程序
+
+#### 集中存储相关信息
+
+管理与DOM元素相关联的处理程序的最好方式是给每个元素都指定一个唯一标识符，然后将所有相关的数据和该标识符一起保存在一个集中的对象上。虽然将信息单独保存在每个对象上似乎更自然，但是将所有的数据都保存在一个集中的对象上可以避免IE浏览器的潜在内存泄漏问题，这些潜在问题在某些情况下会丢失信息。（例如，在IE的DOM元素上绑定的函数如果在某个元素节点上有闭包关联的话，离开页面时会导致内存回收失败）
+
+**实现一个中央对象用于保存DOM元素信息**
+
+```js
+<div title="Ninja"> Ninja </div>
+<div title="Secrets">秘密</div>
+<script>
+(function(){
+	var cache = {},
+        guidCounter = 1,
+        expando = "data" + (new Date).getTime();
+    this.getData = function(elem) {
+        var guid = elem[expamdo];
+        if(!guid) {
+            guid = elem[expando] = guidCounter++;
+            cache[guid] = {};
+        }
+        return cache[guid];
+    }
+    this.removeData = function(elem) {
+        var guid = elem[expando];
+        if(!guid) return;
+        delete cache[guid];
+        try {
+            delete elem[expando];
+        }
+        catch (e) {
+            if(elem.removeAttribute) {
+                elem.removeAtribute(expando);
+            }
+        }
+    }
+})();
+var elems = document.getElementsByTagName('div');
+for(var n = 0; n < elems.length; n++) {
+    getData(elems[n]).ninja = elems[n].title;
+}
+for(var n = 0; n < elems.length; n++) {
+    getData(elems[n]).ninja === elems[n].title;
+}
+for(var n = 0; n < elems.length; n++) {
+    removeData(elem[n]);
+    getData(elems[n]).ninja === elems[n].title;
+}
+</script>
+```
+
+我们需要一些变量，但又不想污染全局作用域，所以我们在一个即时函数里进行设置。
+
+#### 管理事件处理程序
+
+为了完全控制事件处理过程，我们需要创建自己的函数来包装事件的绑定和解绑操作。这样做，我们可以尽可能地在所有平台上，将事件处理模型进行统一。
+
+**绑定事件处理程序并进行跟踪的函数**
+
+```js
+(function(){
+    var nextGuid = 1;
+    this.addEvent = function(elem, type, fn) {
+        var data = getData(elem);
+        if(!data.handlers) data.handlers = {};
+        if(!data.handlers[type]) {
+            data.handlers[type] = [];
+        }
+        if(!fn.guid) {
+            fn.guid = nextGuid++;
+        }
+        data.handlers[type].push(fn);
+        if(!data.dispatcher) {
+            data.disabled = false;
+            data.dispatcher = function(event) {
+                if(data.disabled) return;
+                event = fixEvent(event);
+                var handlers = data.handlers[event.type];
+                if(handlers) {
+                    for(var n = 0; n < handlers.length; n++){
+                        handlers[n].call(elem, event);
+                    }
+                }
+            }
+        }
+        if(data.handlers[type].length == 1){
+            if(document.addEventListener){
+                elem.addEventListener(type, data.dispatcher, false);
+            }
+            else if(document.attachEvent) {
+                elem.attachEvent('on' + type, data.dispatcher);
+            }
+        }     
+    }
+})();
+```
+
+最后，判断是否为该元素创建了第一个这种类型的处理程序，如果是，就在运行的浏览器中根据适当的方法，将dispatcher函数作为该类型的事件处理程序进行绑定。
+
+最后的结果就是，传入的函数从来就没有成为实际的事件处理程序，相反，它们通过委托函数进行保存，并在事件发生时进行调用，真正的处理程序是委托函数。可以做到：
+
+- Event实例被修复
+- 将函数上下文设置成目标元素
+- Event实例作为唯一的参数传递给处理程序
+- 事件处理程序永远按照其绑定顺序进行执行
+
+使用这种方式对事件处理过程进行这种级别的控制，尤达都会感到自豪。
+
+**清理资源**
+
+- 清理处理程序
+
+```js
+function tidyUp(elem, type) {
+    function isEmpty(object){
+        for(var prop in object){
+            return false;
+        }
+    }
+    var data = getData(elem);
+    if(data.handlers[type].length === 0){
+        delete data.handlers[type];
+        if(document.removeEventListener) {
+            elem.removeEventListener(type, data.dispatcher, false);
+        } else if(document.detachEvent){
+            elem.detachEvent('on' + type, data.dispatcher);
+        }
+    }
+    if(isEmpty(data.handlers)) {
+        delete data.handlers;
+        delete data.dispatcher;
+    }
+    if(isEmpty(data)){
+        removeData(elem);
+    }
+ }
+```
+
+**解绑事件处理程序**
+
+功能：
+
+- 将一个元素的所有绑定事件进行解绑
+- 将一个元素特定类型的所有事件进行解绑
+- 将一个元素的特定处理程序进行解绑
+
+通过一个可变长度的参数列表，我们可以实现上述功能。
+
+`removeEvent(element);`
+
+`removeEvent(element, 'click');`
+
+`removeEvent(element, 'click', handler);`
+
+- 事件处理程序的解绑函数
+
+```js
+this.removeEvent = function(elem, type, fn) {
+    var data = getData(elem);
+    if(!data.handlers) return;
+    var removeType = function(t) {
+        data.handlers[t] = [];
+        tidyUp(elem, t);
+    }
+    if(!type) {
+        for(var t in data.handlers) removeType(t);
+        return;
+    }
+    var handlers = data.handlers[type];
+    if(!handlers) return;
+    if(!fn) {
+        removeType(type);
+        return;
+    }
+    if(fn.guid) {
+        for(var n = 0; n < handlers.length; n++) {
+            if(handlers[n].guid === fn.guid) {
+                handlers.splice(n--,1);
+            }
+        }
+    }
+    tidyUp(elem, type);
+}
+```
+
+**事件触发**
+
+```js
+function triggerEvent(elem, event){
+    var elemData = getData(elem),
+        parent = elem.parentNode||elem.ownerDocument;
+    if(typeof event === 'string') {
+        event = { type:event, target:elem };
+    }
+    event = fixEvent(event);
+    if(elemData.dispatcher) {
+        elemData.dispatcher.call(elem, event);
+    }
+    if(parent && !event.isPropagationStopped()){
+        triggerEvent(parent, event);
+    } else if(!parent&&!event.isDefaultPrevented()) {
+        var targetData = getData(event.target);
+        if(event.target[event.type]) {
+            targetData.disabled = true;
+            event.target[event.type]();
+            targetData.disabled = false;
+        }
+    }
+    
+}
+```
+
+**自定义事件**
+
+**松耦合**
+
+**触发自定义事件**
+
+```js
+addEvent(body, 'ajax-start', function(){
+    ...
+})
+addEvent(body, 'ajax-end', function(){
+    ...
+})
+function performAjaxOperation(target) {
+    triggerEvent(target, 'ajax-start');
+    triggerEvent(target, 'ajax-end');
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
