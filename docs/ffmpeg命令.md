@@ -29,3 +29,10 @@ output.mp4
 
 mp4fragment filein.mp4 fileout.mp4
 
+4. 使用ffmpeg调整视频分辨率
+
+   `ffmpeg -i <input> -vf scale=720x406 <output>`
+
+   https://www.bugcodemaster.com/article/changing-resolution-video-using-ffmpeg
+
+5. 

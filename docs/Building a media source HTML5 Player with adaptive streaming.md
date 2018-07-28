@@ -44,13 +44,11 @@ Note: The MSE spec is still in a draft form. Its currently supported by default 
 
   视频卡住后，不会及时通知或者没有通知。
 
-  **No adaptive streaming. Slow network? Too bad.**
+- **No adaptive streaming. Slow network? Too bad.**
 
   With HTML5 video there's no way to switch the video rendition on the fly without interrupting the experience. If your network starts running slow you either have to replace the video with a new one or simply wait for it to buffer. With Flash it's been possible to use adaptive streaming to change the video quality on the fly for years.
 
   With MSE we can switch the video source between multiple renditions stored on a Content Delivery Network (CDN). We don't even need to use a streaming server.
-
-  看demo视频
 
 - **No control over how the video buffers**
 
@@ -82,7 +80,7 @@ Note: The MSE spec is still in a draft form. Its currently supported by default 
 
 This video begins using a 1080 rendition, when you click the *Simulate Network Slowdown* button it will switch to a lower 180 rendition. This change will happen visually in the next cluster. This allows the current cluster to continue playing at the same resolution so the video playback isn't interrupted.
 
-The current download rate, as a ratio of average download time per second of video per second of playback is also displayed.
+The current download rate, as a ratio of average download time per second of video per second of playback is also displayed.                                
 
 All of the code for this example and the upcoming examples are available in our [Git repository](https://github.com/wireWAX/media-source-tutorial).
 

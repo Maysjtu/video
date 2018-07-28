@@ -92,6 +92,12 @@ sourceBuffer.timestampOffset
 
 
 
+即使当前sourceBuffer正在播放也会被覆盖？会打断播放吗，仔细看下。
+
+
+
+
+
 ### 来源
 
 [全面进阶 H5 直播（下）](https://cloud.tencent.com/developer/article/1005457)

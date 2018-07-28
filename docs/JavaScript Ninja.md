@@ -1867,21 +1867,3 @@ function performAjaxOperation(target) {
 }
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
