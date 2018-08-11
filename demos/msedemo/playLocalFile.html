@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title></title>
+    <style type="text/css">
+    .video {
+        width: 640px;
+        height: 360px;
+    }
+    </style>
+</head>
+
+<body>
+    <h3>mse demo</h3>
+    <video class="video" controls=""></video>
+    <br>
+    <input type="file" name="file" id="fileInput">
+    <script type="text/javascript">
+    var vidElement = document.querySelector('video');
+    var fileInput = document.getElementById('fileInput');
+    var reader = new FileReader();
+    reader.onload = function(e) {
+    	console.log('read ok!');
+    	var data = e.target.result;
+      sourceBuffer.appendBuffer(data);
+
+    }
+    fileInput.addEventListener('change', function() {
+    	var filename = fileInput.value;
+    	if(!filename.endsWith('.mp4')) {
+    		alert('can not play');
+    		return;
+    	}
+    	var file = fileInput.files[0];
+   		reader.readAsArrayBuffer(file);
+
+    })
+
+    if (window.MediaSource) {
+        var mediaSource = new MediaSource();
+        vidElement.src = URL.createObjectURL(mediaSource);
+        mediaSource.addEventListener('sourceopen', sourceOpen);
+    } else {
+        console.log("The Media Source Extensions API is not supported.")
+    }
+
+    function sourceOpen(e) {
+        URL.revokeObjectURL(vidElement.src);
+
+        mime = 'video/mp4; codecs="avc1.64001F, mp4a.40.2"';
+        console.log(MediaSource.isTypeSupported(mime));
+        mediaSource = e.target;
+        sourceBuffer = mediaSource.addSourceBuffer(mime);
+        sourceBuffer.addEventListener('updateend', function(e) {
+            console.log('end');
+            if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
+                mediaSource.endOfStream();
+            }
+        });
+    }
+    </script>
+</body>
+
+</html>

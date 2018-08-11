@@ -2,7 +2,7 @@
 
 ### 一、WebGL起源
 
-​	![](http://p1yseh5av.bkt.clouddn.com/18-1-23/61301883.jpg)
+![](http://p1yseh5av.bkt.clouddn.com/18-1-23/61301883.jpg)
 
 从2.0版本开始，OpenGL支持了一项非常重要的特性，可编程着色器语言。
 
