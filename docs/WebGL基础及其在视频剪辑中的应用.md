@@ -64,8 +64,6 @@
   - 光源
   - 材质属性
 
-  
-
 - 图形绘制流水线
 
   ![](http://p1yseh5av.bkt.clouddn.com/18-5-28/94206024.jpg)
@@ -123,13 +121,13 @@ gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
 `;
 
-var vertexShader = gl.createShader(gl.VERTEX_SHADER);
-
+var vertexShader = gl.createShader(gl.VERTEX_SHADER); 
+//创建顶点着色器
 gl.shaderSource(vertexShader, VSHADER_SOURCE);
 gl.compileShader(vertexShader);
 
 var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-
+//创建片元着色器
 gl.shaderSource(fragmentShader, FSHADER_SOURCE);
 gl.compileShader(fragmentShader);
 
@@ -235,7 +233,6 @@ WebGL只能绘制三种图形：点、线段和三角形。但是，正如本章
 
 - 逐片元处理 -> demo
 
-  
 
 Demo:
 
@@ -298,4 +295,3 @@ gl_FragColor=transition(uv);
 2. 《WebGL编程指南》
 3. 《交互式计算机图形学》第七版
 4. [GL-Transitions](https://gl-transitions.com/)
-

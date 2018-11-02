@@ -30,6 +30,44 @@ CPU（Central Processing Unit，中央处理器）是计算机设备核心器件
 
 在Android中，大多数应用的界面都是利用常规的View来构建的（除了游戏、视频、图像等应用可能直接使用OpenGL ES）
 
+```js
+var VSHADER_SOURCE = `
+        attribute vec2 a_Position;
+        varying vec2 uv;
+
+        void main(){
+            gl_Position = vec4(a_Position,0.0,1.0);
+            uv = vec2(0.5, 0.5) * (a_Position + vec2(1.0, 1.0));
+        }
+`;
+var FSHADER_SOURCE = `
+        precision mediump float;
+        precision highp float;
+        varying vec2 uv;
+
+        uniform float progress, ratio;
+
+        uniform sampler2D u_Sampler0, u_Sampler1;
+            vec4 getFromColor(vec2 uv){
+            return texture2D(u_Sampler0, uv);
+        }
+        vec4 getToColor(vec2 uv){
+        	return texture2D(u_Sampler1, uv);
+        }
+        vec4 transition (vec2 uv) {
+            return mix(
+            getFromColor(uv),
+            getToColor(uv),
+            progress
+            );
+        }
+
+        void main(){
+        	gl_FragColor=transition(uv);
+        }
+`;
+```
+
 
 
 

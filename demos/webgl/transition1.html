@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Transition</title>
+		<style type="text/css">
+			body {
+				width: 100%;
+				text-align: center;
+			}
+			#canvas {
+				display: inline-block;
+				margin: 0 auto;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas" width="600" height="400"></canvas>
+		<script type="text/javascript">
+			function initShader(gl, vertexShaderSource, fragmentShaderSource) {
+				var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexShaderSource);
+				gl.compileShader(vertexShader);
+
+				var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentShaderSource);
+				gl.compileShader(fragmentShader);
+
+				var program = gl.createProgram();
+				gl.attachShader(program, vertexShader);
+				gl.attachShader(program, fragmentShader);
+
+
+				  // Check the result of compilation
+				var compiled = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
+				  if (!compiled) {
+				    var error = gl.getShaderInfoLog(fragmentShader);
+				    console.log('Failed to compile shader: ' + error);
+				    //gl.deleteShader(vertexShader);
+				}
+				console.log(compiled);
+
+				gl.linkProgram(program);
+				console.log(program);
+				gl.useProgram(program);
+				gl.program = program;
+			}
+			function initVertexBuffer(gl, vertices){
+				var buffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+				gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+			}
+			function setAttributeFromBuffer(gl, name, size, stride, offset) {
+				var attribute = gl.getAttribLocation(gl.program, name);
+				gl.vertexAttribPointer(attribute, size, gl.FLOAT, false, stride, offset);
+				gl.enableVertexAttribArray(attribute);
+			}
+			function setUniform(gl, name, f){
+				var u_FragColor = gl.getUniformLocation(gl.program, name);
+				gl.uniform1f(u_FragColor, f);
+			}
+			function clear(gl, r, g, b, a) {
+				gl.clearColor(r, g, b, a);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+			}
+			function draw(gl, size) {
+				let timestamp = new Date().getTime();
+				timestamp = (timestamp/10)%100;
+				setUniform(gl, 'progress', timestamp/100);
+				clear(gl, 0.0, 0.0, 0.0, 1.0);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, size);
+				requestAnimationFrame(function(){
+					draw(gl, size);
+				})
+			}
+
+			var canvas = document.getElementById('canvas');
+			var gl = canvas.getContext('webgl');
+			var VSHADER_SOURCE = `
+				attribute vec2 a_Position;
+				varying vec2 uv;
+
+				void main(){
+					gl_Position = vec4(a_Position,0.0,1.0);
+					uv = vec2(0.5, 0.5) * (a_Position + vec2(1.0, 1.0));
+				}
+			`;
+			var FSHADER_SOURCE = `
+				precision mediump float;
+				precision highp float;
+				varying vec2 uv;
+
+				uniform float progress, ratio;
+
+				uniform sampler2D u_Sampler0, u_Sampler1;
+				vec4 getFromColor(vec2 uv){
+					return texture2D(u_Sampler0, uv);
+				}
+				vec4 getToColor(vec2 uv){
+					return texture2D(u_Sampler1, uv);
+				}
+				vec4 transition (vec2 uv) {
+				  return mix(
+				    getFromColor(uv),
+				    getToColor(uv),
+				    progress
+				  );
+				}
+				
+				void main(){
+					gl_FragColor=transition(uv);
+				}
+			`;
+
+			var verticesTexCoords = new Float32Array([
+			    -1,  1, 0, 1,
+			    -1, -1, 0, 0,
+			     1,  1, 1, 1,
+			     1, -1, 1, 0
+				]);
+
+			function initTexture(gl ,n){
+				var texture0 = gl.createTexture();
+				var texture1 = gl.createTexture();
+				var u_Sampler0 = gl.getUniformLocation(gl.program, 'u_Sampler0');
+				var u_Sampler1 = gl.getUniformLocation(gl.program, 'u_Sampler1');
+
+				var image0 = new Image();
+				var image1 = new Image();
+				image0.onload = function(){
+			    	loadTexture(gl, n, texture0, u_Sampler0, image0, 0);
+			  	};
+			  	image1.onload = function(){
+			    	loadTexture(gl, n, texture1, u_Sampler1, image1, 1);
+			  	};
+
+			    image0.src = './assets/1.jpg';
+			    image1.src = './assets/2.jpg';
+			}
+			function drawScene(gl, n) {
+			  	gl.drawArrays(gl.TRIANGLE_STRIP, 0, n);
+			}
+			var get_Tex0 = false,get_Tex1 = false;
+			function loadTexture(gl, n, texture, u_Sampler, image, texUnit){
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,1);
+			  	if(texUnit==0) {
+			  		gl.activeTexture(gl.TEXTURE0);
+			  		get_Tex0 = true;
+			  	} else {
+			  		gl.activeTexture(gl.TEXTURE1);
+			  		get_Tex1 = true;
+			  	}
+
+			  	//向target绑定纹理对象
+			  	gl.bindTexture(gl.TEXTURE_2D, texture);
+			  	//配置纹理参数
+
+			  	// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+ 						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+		        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+//			  	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+
+			  	//配置纹理图像
+			  	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+			  	//将0号纹理传递给着色器
+			  	gl.uniform1i(u_Sampler, texUnit);
+
+			  	if(get_Tex0&&get_Tex1){
+						requestAnimationFrame(function(){
+							draw(gl, n);
+						});
+			  	}
+
+			}
+
+			initShader(gl, VSHADER_SOURCE, FSHADER_SOURCE);
+			// 往顶点数据缓存冲写入数据
+			initVertexBuffer(gl, verticesTexCoords);
+			// 使着色器代码中的a_Position变量，指向顶点数据缓冲区
+			var FSIZE = verticesTexCoords.BYTES_PER_ELEMENT;
+			setAttributeFromBuffer(gl, 'a_Position', 2, FSIZE*4, 0);
+
+
+			// 清除颜色缓冲区中数据
+
+			initTexture(gl, 4);
+
+		</script>
+	</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Document</title>
+    <style type="text/css">
+    .cvs {
+        width: 600px;
+        height: 400px;
+    }
+
+    img {
+        display: none;
+        width: 600px;
+        height: 400px;
+    }
+    #canvas1 {
+    	display: none;
+    }
+    #canvas2 {
+    	display: none;
+    }
+    </style>
+</head>
+
+<body>
+    <img src="assets/1.jpg" id="img1">
+    <br>
+    <img src="assets/2.jpg" id="img2">
+    <br>
+    <canvas id="canvas1" width="600" height="400" class="cvs"></canvas>
+    <canvas id="canvas2" width="600" height="400" class="cvs"></canvas>
+    <canvas id="canvas3" width="600" height="400" class="cvs"></canvas>
+    <script type="text/javascript">
+    window.onload = function() {
+        var ctx1 = document.getElementById('canvas1').getContext('2d');
+        var ctx2 = document.getElementById('canvas2').getContext('2d');
+        var ctx3 = document.getElementById('canvas3').getContext('2d');
+        var Image1 = document.getElementById('img1');
+        var Image2 = document.getElementById('img2');
+
+        ctx1.drawImage(Image1, 0, 0, canvas1.width, canvas1.height, 0, 0, Image1.width, Image1.height);
+        ctx2.drawImage(Image2, 0, 0, canvas2.width, canvas2.height, 0, 0, Image2.width, Image2.height);
+
+        var frame1 = ctx1.getImageData(0, 0, 600, 400);
+        var frame2 = ctx2.getImageData(0, 0, 600, 400);
+        var cnt = 0;
+        function DrawCanvas3(alpha) {
+            var l = frame1.data.length / 4;
+            var imgData=ctx3.createImageData(600,400);
+            for (var i = 0; i < l; i++) {
+            	// console.log('process');
+                imgData.data[i * 4 + 0] = frame1.data[i * 4 + 0] * alpha + frame2.data[i * 4 + 0] * (1 - alpha);
+                imgData.data[i * 4 + 1] = frame1.data[i * 4 + 1] * alpha + frame2.data[i * 4 + 1] * (1 - alpha);
+                imgData.data[i * 4 + 2] = frame1.data[i * 4 + 2] * alpha + frame2.data[i * 4 + 2] * (1 - alpha);
+                imgData.data[i * 4 + 3] = 255;
+            }
+            ctx3.putImageData(imgData, 0, 0);
+            requestAnimationFrame(step);
+        }
+
+        function step() {
+        	var alpha = new Date().getTime()/30%100/100;
+          DrawCanvas3(alpha);
+        }
+        requestAnimationFrame(step);
+    }
+    </script>
+</body>
+
+</html>

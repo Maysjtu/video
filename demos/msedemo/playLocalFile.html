@@ -24,8 +24,8 @@
     	console.log('read ok!');
     	var data = e.target.result;
       sourceBuffer.appendBuffer(data);
-
     }
+
     fileInput.addEventListener('change', function() {
     	var filename = fileInput.value;
     	if(!filename.endsWith('.mp4')) {
@@ -34,8 +34,7 @@
     	}
     	var file = fileInput.files[0];
    		reader.readAsArrayBuffer(file);
-
-    })
+    });
 
     if (window.MediaSource) {
         var mediaSource = new MediaSource();

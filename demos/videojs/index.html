@@ -9,7 +9,7 @@
   			padding: 0;
   		}
   		.container {
-  			width: 800px;
+  			width: 100%;
 /*  			height: 200px;
   			overflow: hidden;*/
   		}
@@ -17,10 +17,10 @@
 </head>
 <body>
  <div class="container">
-  <audio src="../../assets/12.wma" width="300" controls height="200" ></audio>
+<!--   <audio src="../../assets/12.wma" width="300" controls height="200" ></audio> -->
 
  	  <video id="my-video" class="video-js" controls="controls">
-      <!-- <source src="http://yunxi-transcode-cluster.oss-cn-shanghai.aliyuncs.com/media/large.mp4" type='video/mp4'> -->
+      <source src="./xgplayer-demo.mp4" type='video/mp4'>
     	<source src="0" type='video/mayde'>
     	<!-- <track kind="subtitles" src="./test.vtt" srclang="en" label="English"> -->
     	<track kind="captions" src="./test.vtt" srclang="en" label="English">
@@ -81,6 +81,8 @@
       });
 
       player = videojs('my-video', {
+        width: 640,
+        height: 360,
       controlBar: {
         children: [
           'playToggle',
@@ -102,6 +104,7 @@
           'fullscreenToggle'
         ]
       },
+      aspectRatio: '4:3',
       fluid: true
 
     });
@@ -130,7 +133,7 @@
   //     autoplay: true,
 		//   preload: 'auto',
 		//   width: '640px',
-		//   // aspectRatio: '16:9',
+		  // aspectRatio: '16:9',
 		//   fluid: true,
 		//   language: 'es',
 		//   notSupportedMessage: '呵呵，不支持',
